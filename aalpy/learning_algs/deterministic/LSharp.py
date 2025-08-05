@@ -1,6 +1,7 @@
 import time
 
 from aalpy.base import Oracle, SUL
+from aalpy.SULs import DfaSUL
 from aalpy.utils.HelperFunctions import print_learning_info
 from .ObservationTree import ObservationTree
 from ...base.SUL import CacheSUL
@@ -52,7 +53,9 @@ def run_Lsharp(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type,
 
     if cache_and_non_det_check or samples is not None:
         # Wrap the sul in the CacheSUL, so that all steps/queries are cached
-        sul = CacheSUL(sul)
+        if not isinstance(sul, DfaSUL):
+            sul = CacheSUL(sul)
+
         eq_oracle.sul = sul
 
         if samples:

@@ -1,5 +1,6 @@
 from statistics import mean
 
+from aalpy.SULs.DfaSUL import DfaSUL
 from aalpy.automata import Onfsm, Mdp, StochasticMealyMachine
 from aalpy.base import Oracle, SUL
 from random import randint, choice
@@ -64,7 +65,7 @@ class RandomWordEqOracle(Oracle):
 
                 self.num_steps += 1
 
-                if self.automata_type == 'det' and out_sul != out_hyp:
+                if self.automata_type == 'det' and out_sul != out_hyp and out_sul != None:
                     if self.reset_after_cex:
                         self.walk_lengths = [randint(self.min_walk_len, self.max_walk_len) for _ in range(self.num_walks)]
                         self.num_walks_done = 0
@@ -87,6 +88,12 @@ class RandomWordEqOracle(Oracle):
                         for i, o in zip(inputs, outputs):
                             cex.extend([i, o])
                         return cex
+            final_output = self.sul.post()
+            if (final_output != None and final_output != "unknown") and final_output != out_hyp:
+                #print("in oracle", final_output, out_hyp)
+                return inputs
+                
+
 
         return None
 

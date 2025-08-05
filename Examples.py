@@ -66,8 +66,32 @@ def angluin_seminal_example_lsharp():
                             extension_rule="SepSeq", separation_rule="ADS", max_learning_rounds=50, print_level=3)
 
     assert learned_dfa == dfa
-    return learned_dfa
+    return learned_dfa      
 
+def angluin_seminal_example_lsharp_incomplete():
+    """
+    Example automaton from Angluin's seminal paper.
+    :return: learned DFA
+    """
+    from aalpy.SULs.DfaSUL import DfaSUL, IncompleteDfaSUL
+    from aalpy.oracles import RandomWordEqOracle
+    from aalpy.learning_algs import run_Lstar, run_LsharpSquare
+    from aalpy.utils import get_Angluin_dfa
+    #import z3
+
+    dfa = get_Angluin_dfa()
+
+    alphabet = dfa.get_input_alphabet()
+
+
+    sul = IncompleteDfaSUL([], dfa, fractionKnown=0.5) #, "random", fractionKnown=0.5)
+    eq_oracle = RandomWordEqOracle(alphabet, sul, 500)
+
+    learned_dfa = run_LsharpSquare(alphabet, sul, eq_oracle, automaton_type='dfa',
+                                   max_learning_rounds=50, print_level=3)
+
+    assert learned_dfa == dfa
+    return learned_dfa  
 
 def tomita_example(tomita_number=3):
     """
@@ -1347,3 +1371,5 @@ def k_tails_example():
     k_trails_1 = run_k_tails(data, k=3, automaton_type='moore', print_info=True)
 
     k_tails_2 = run_k_tails(data, k=8, automaton_type='mealy', print_info=True)
+
+angluin_seminal_example_lsharp_incomplete()

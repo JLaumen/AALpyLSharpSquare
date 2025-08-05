@@ -62,7 +62,7 @@ class RandomWalkEqOracle(Oracle):
             else:
                 out_hyp = hypothesis.step_to(inputs[-1], out_sul)
 
-            if self.automata_type == 'det' and out_sul != out_hyp:
+            if self.automata_type == 'det' and out_sul != out_hyp and not out_sul == "unknown":
                 if self.reset_after_cex:
                     self.random_steps_done = 0
 

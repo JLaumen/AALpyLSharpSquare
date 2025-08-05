@@ -156,10 +156,11 @@ class CacheSUL(SUL):
         # get outputs using default query method
         out = self.sul.query(word)
 
-        # add input/outputs to tree
-        self.cache.reset()
-        for i, o in zip(word, out):
-            self.cache.step_in_cache(i, o)
+        # add input/outputs to tree if possible
+        if type(out) == list:
+            self.cache.reset()
+            for i, o in zip(word, out):
+                self.cache.step_in_cache(i, o)
 
         self.num_queries += 1
         self.num_steps += len(word)
@@ -173,7 +174,7 @@ class CacheSUL(SUL):
         self.sul.pre()
 
     def post(self):
-        self.sul.post()
+        return self.sul.post()
 
     def step(self, letter):
         """

@@ -5,6 +5,14 @@ class Node(object):
         self.value = value
         self.children = {}
 
+    def __str__(self):
+        result = f"{self.value} or "
+        for inp, child in self.children.items():
+            result += inp + ":(" + str(child) + ")"
+        result += f""
+        return result
+
+
 
 class CacheTree:
     """
@@ -26,7 +34,7 @@ class CacheTree:
         self.inputs = ()
         self.outputs = ()
 
-    def step_in_cache(self, inp, out):
+    def step_in_cache(self, inp, out=None):
         """
         Preform a step in the cache. If output exist for the current state, and is not the same as `out`, throw
         the non-determinism violation error and abort learning.
@@ -39,7 +47,8 @@ class CacheTree:
         self.inputs += (inp,)
         self.outputs += (out,)
         if inp is None:
-            self.root_node.value = out
+            if not out is None:
+                self.curr_node.value = out
             return
 
         if inp not in self.curr_node.children.keys():
@@ -47,7 +56,9 @@ class CacheTree:
             self.curr_node.children[inp] = node
         else:
             node = self.curr_node.children[inp]
-            if node.value != out:
+            if node.value is None:
+                node.value = out
+            elif node.value != out and not out is None: 
                 expected_seq = self.outputs[:-1]
                 expected_seq += (node.value,)
                 msg = f'Non-determinism detected.\n' \
@@ -56,6 +67,10 @@ class CacheTree:
                       f'Expected Output: {expected_seq}\n' \
                       f'Received output: {self.outputs}'
                 raise SystemExit(msg)
+            else:
+                if not out is None:
+                    #print(node.value, "set to", out)
+                    node.value = out
         self.curr_node = node
 
     def in_cache(self, input_seq: tuple):
@@ -74,6 +89,9 @@ class CacheTree:
         """
         curr_node = self.root_node
 
+        if len(input_seq)==0:
+            return self.root_node.value
+
         output_seq = ()
         for letter in input_seq:
             if letter in curr_node.children.keys():
@@ -81,7 +99,7 @@ class CacheTree:
                 output_seq += (curr_node.value,)
             else:
                 return None
-
+        #print('found')
         return output_seq
 
     def add_to_cache(self, input_sequence, output_sequence):
