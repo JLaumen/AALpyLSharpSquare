@@ -84,7 +84,7 @@ def angluin_seminal_example_lsharp_incomplete():
     alphabet = dfa.get_input_alphabet()
 
 
-    sul = IncompleteDfaSUL([], dfa, fractionKnown=0.5) #, "random", fractionKnown=0.5)
+    sul = IncompleteDfaSUL([], dfa, fractionKnown=0.5)
     eq_oracle = RandomWordEqOracle(alphabet, sul, 500)
 
     learned_dfa = run_LsharpSquare(alphabet, sul, eq_oracle, automaton_type='dfa',
@@ -1371,5 +1371,3 @@ def k_tails_example():
     k_trails_1 = run_k_tails(data, k=3, automaton_type='moore', print_info=True)
 
     k_tails_2 = run_k_tails(data, k=8, automaton_type='mealy', print_info=True)
-
-angluin_seminal_example_lsharp_incomplete()
