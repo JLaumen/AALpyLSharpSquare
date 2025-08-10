@@ -2,7 +2,7 @@ import time
 
 from aalpy.base import Oracle, SUL
 from aalpy.SULs import DfaSUL
-from aalpy.utils.HelperFunctions import print_learning_info
+# from aalpy.utils.HelperFunctions import print_learning_info
 from .ObservationTreeSquare import ObservationTreeSquare
 from ...base.SUL import CacheSUL
 
@@ -25,10 +25,6 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
         eq_oracle: equivalence oracle
 
         automaton_type: type of automaton to be learned. Either 'dfa', 'mealy' or 'moore'
-
-        extension_rule: strategy used during the extension rule. Options: None, "SepSeq" (default) and "ADS".
-
-        separation_rule: strategy used during the extension rule. Options: "SepSeq" (default) and "ADS".
 
         samples: input output traces provided to the learning algorithm. They are added to cache and could reduce
         total interaction with the system. Syntax: list of [(input_sequence, output_sequence)] or None
@@ -105,26 +101,26 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
     info = {
         'learning_rounds': learning_rounds,
         'automaton_size': hypothesis.size,
-        #time
+        # time
         'learning_time': learning_time,
         'smt_time': smt_time,
         'eq_oracle_time': eq_query_time,
         'total_time': total_time,
-        #learning algorithm
+        # learning algorithm
         'queries_learning': sul.num_queries,
         'validity_query': validity_queries,
         'rule1': ob_tree.rule1_applications,
         'rule2': ob_tree.rule2_applications,
         'rule3': ob_tree.rule3_applications,
         'rule4': ob_tree.rule4_applications,
-        #tree
-        'nodes':ob_tree.get_size(),
-        'informative_nodes':ob_tree.count_informative_nodes(),
-        'analyzed_bases':ob_tree.bases_analyzed,
+        # tree
+        'nodes': ob_tree.get_size(),
+        'informative_nodes': ob_tree.count_informative_nodes(),
+        'analyzed_bases': ob_tree.bases_analyzed,
         # system under learning
         'sul_steps': sul.num_steps,
         'cache_saved': sul.num_cached_queries,
-        #eq_oracle
+        # eq_oracle
         'queries_eq_oracle': eq_oracle.num_queries,
         'steps_eq_oracle': eq_oracle.num_steps,
     }
@@ -137,16 +133,17 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
 
     return hypothesis
 
+
 def pretty_print_info(info: dict):
     """
     Print learning statistics.
     """
     print('-----------------------------------')
-    #general
+    # general
     print('Learning Finished.')
     print('Learning Rounds:  {}'.format(info['learning_rounds']))
     print('Number of states: {}'.format(info['automaton_size']))
-    #time
+    # time
     print('Time (in seconds)')
     print('  Total                : {}'.format(round(info['total_time'], 2)))
     print('  Learning algorithm   : {}'.format(round(info['learning_time'], 2)))
@@ -162,18 +159,18 @@ def pretty_print_info(info: dict):
     print('   - Rule 2 applied      : {}'.format(info['rule2']))
     print('   - Rule 3 applied      : {}'.format(info['rule3']))
     print('   - Rule 4 applied      : {}'.format(info['rule4']))
-    #tree stats
+    # tree stats
     print()
     print('Tree')
     print(' # Amount of Nodes     : {}'.format(info['nodes']))
     print(' # Informative Nodes   : {}'.format(info['informative_nodes']))
     print(' # Bases Analysed      : {}'.format(info['analyzed_bases']))
-    #system under learning
+    # system under learning
     print()
     print('System under learning      ')
     print(' # MQ Saved by Caching : {}'.format(info['cache_saved']))
     print(' # Steps in automaton  : {}'.format(info['sul_steps']))
-    #validity oracle
+    # validity oracle
     print()
     print('Validity Oracle')
     print(' # Membership Queries  : {}'.format(info['queries_eq_oracle']))
