@@ -1,4 +1,5 @@
 from collections import deque
+from copy import deepcopy
 
 
 class Apartness:
@@ -68,6 +69,40 @@ class Apartness:
                         input_val), second_node.get_successor(input_val)))
 
         return None
+
+    @staticmethod
+    def states_are_incompatible(first, second, ob_tree):
+        # Get the input to the nodes
+        first_input = ob_tree.get_access_sequence(first)
+        second_input = ob_tree.get_access_sequence(second)
+        # Make a copy of the tree
+        tree = deepcopy(ob_tree)
+        first_node = tree.get_successor(first_input)
+        second_node = tree.get_successor(second_input)
+        result = Apartness.merge(first_node, second_node)
+        return result
+
+    @staticmethod
+    def merge(first, second):
+        # Merge the second node into the first node, and return whether there is a fonflict
+        # Get the new output
+        if first.output is "unknown":
+            first.output = second.output
+        elif second.output is not "unknown" and first.output != second.output:
+            return True
+        # Modify the parent of the second node to point to the first node
+        if second.parent:
+            second.parent.successors[second.input_to_parent] = first
+        # Merge the children
+        for input_val, second_succ in second.successors.items():
+            if input_val in first.successors and first.successors[input_val] is not second_succ:
+                conflict = Apartness.merge(first.successors[input_val], second_succ)
+                if conflict:
+                    return True
+            else:
+                first.successors[input_val] = second_succ
+        return False
+
     
     @staticmethod
     def _get_distinguishing_sequences(group, ob_tree):

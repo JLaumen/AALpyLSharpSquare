@@ -1,7 +1,6 @@
 import time
 from collections import deque
 import copy
-import heapq
 
 # from .ADS import Ads
 from .Apartness import Apartness
@@ -51,7 +50,7 @@ class ObservationTreeSquare:
         self.basis.append(self.root)
         self.guaranteed_basis = []
         self.guaranteed_basis.append(self.root)
-        self.queue = []
+        self.queue = deque()
         self.frontier_to_basis_dict = {}
 
         # Caches the separating sequences between basis nodes
@@ -210,7 +209,7 @@ class ObservationTreeSquare:
         basis_list = self.frontier_to_basis_dict[frontier_node]
         self.frontier_to_basis_dict[frontier_node] = [basis_node for basis_node in basis_list
                                                       if
-                                                      not Apartness.states_are_apart(frontier_node, basis_node, self)]
+                                                      not Apartness.states_are_incompatible(frontier_node, basis_node, self)]
 
     def update_frontier_to_basis_dict(self):
         """
@@ -221,7 +220,7 @@ class ObservationTreeSquare:
         for frontier_node, basis_list in self.frontier_to_basis_dict.items():
             self.frontier_to_basis_dict[frontier_node] = [
                 basis_node for basis_node in basis_list
-                if not Apartness.states_are_apart(frontier_node, basis_node, self)
+                if not Apartness.states_are_incompatible(frontier_node, basis_node, self)
             ]
 
     def add_frontier_to_queue(self, new_basis_node):
@@ -235,12 +234,9 @@ class ObservationTreeSquare:
         del new_frontier_to_basis_dict[new_basis_node]
 
         for frontier_node, new_basis_options in new_frontier_to_basis_dict.items():
-            if not Apartness.states_are_apart(new_basis_node, frontier_node, self):
+            if not Apartness.states_are_incompatible(new_basis_node, frontier_node, self):
                 new_basis_options.append(new_basis_node)
-        not_apart_len = len(self.frontier_to_basis_dict[new_basis_node])
-        basis_len = len(new_bases)
-        heapq.heappush(self.queue, (basis_len, not_apart_len, new_bases, new_frontier_to_basis_dict))
-        # self.queue.append((new_bases, new_frontier_to_basis_dict))
+        self.queue.append((new_bases, new_frontier_to_basis_dict))
 
     def promote_frontier_node_in_queue(self):
         """
@@ -254,18 +250,15 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
                     if set(basis2) == set(self.basis):
                         already_in_queue = True
                 if not already_in_queue:
-                    not_apart_len = len(self.frontier_to_basis_dict[iso_frontier_node])
-                    basis_len = len(self.basis)
-                    heapq.heappush(self.queue, (basis_len, not_apart_len, self.basis, self.frontier_to_basis_dict))
-                    # self.queue.append((self.basis, self.frontier_to_basis_dict))
-                _, _, self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
+                    self.queue.append((self.basis, self.frontier_to_basis_dict))
+                self.basis, self.frontier_to_basis_dict = self.queue.popleft()
                 self.bases_analyzed += 1
                 self.rule1_applications += 1
                 break
@@ -276,6 +269,7 @@ class ObservationTreeSquare:
         """
         for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
             if not basis_list:
+                print("promoting")
                 # New basis: guaranteed basis + isolated node (preserving order)
                 new_basis = self.guaranteed_basis.copy()
                 new_basis.append(iso_frontier_node)
@@ -284,11 +278,11 @@ class ObservationTreeSquare:
                                               k != iso_frontier_node}
                 # Update basis candidates for remaining frontier nodes
                 for frontier_node, new_basis_list in new_frontier_to_basis_dict.items():
-                    new_basis_list[:] = [b for b in new_basis if not Apartness.states_are_apart(b, frontier_node, self)]
+                    new_basis_list[:] = [b for b in new_basis if not Apartness.states_are_incompatible(b, frontier_node, self)]
                 # Reset the queue to only contain the new minimal basis
                 self.queue.clear()
                 self.queue.append((new_basis, new_frontier_to_basis_dict))
-                self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
+                self.basis, self.frontier_to_basis_dict = self.queue.popleft()
                 # Update guaranteed_basis as well
                 self.guaranteed_basis = new_basis.copy()
                 self.bases_analyzed += 1
@@ -307,7 +301,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -350,7 +344,7 @@ class ObservationTreeSquare:
 
                 self.frontier_to_basis_dict[maybe_frontier] = [
                     new_basis_node for new_basis_node in self.basis
-                    if not Apartness.states_are_apart(new_basis_node, maybe_frontier, self)
+                    if not Apartness.states_are_incompatible(new_basis_node, maybe_frontier, self)
                 ]
 
     def is_observation_tree_adequate(self):
@@ -414,7 +408,7 @@ class ObservationTreeSquare:
     def find_basis_candidates(self, new_frontier):
         return {
             new_basis_node for new_basis_node in self.basis
-            if not Apartness.states_are_apart(new_basis_node, new_frontier, self)
+            if not Apartness.states_are_incompatible(new_basis_node, new_frontier, self)
         }
 
     def explore_frontier(self, basis_node, inp):
@@ -746,10 +740,13 @@ class ObservationTreeSquare:
         """
         Builds the hypothesis which will be sent to the SUL and checks consistency
         """
+        print(len(self.basis))
+        print(len(self.queue))
         while True:
             self.find_adequate_observation_tree()
             self.rule4_applications += 1
             # transition_mapping, output_mapping = self.solve_blanks()
+            print("finding mapping")
             transition_mapping, output_mapping = self.find_mapping()
             if not (transition_mapping is None or output_mapping is None):
                 hypothesis = self.construct_hypothesis(transition_mapping=transition_mapping,
@@ -763,7 +760,7 @@ class ObservationTreeSquare:
                 self.process_counter_example(hypothesis, counter_example, cex_output)
             else:
                 addable_frontier_nodes = set(self.frontier_to_basis_dict.keys()).copy()
-                for _, _, basis2, _ in self.queue:
+                for basis2, _ in self.queue:
                     if not set(self.basis) - set(basis2):
                         extra_nodes = set(basis2) - set(self.basis)
                         if len(extra_nodes) == 1:
@@ -771,7 +768,7 @@ class ObservationTreeSquare:
                             addable_frontier_nodes.remove(node)
                 for frontier_node in addable_frontier_nodes:
                     self.add_frontier_to_queue(frontier_node)
-                _, _, self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
+                self.basis, self.frontier_to_basis_dict = self.queue.popleft()
                 self.bases_analyzed += 1
 
     def find_adequate_observation_tree(self):
