@@ -1,4 +1,6 @@
+import cProfile
 import os
+import pstats
 
 from aalpy.SULs import IncompleteDfaSUL
 from aalpy.oracles import ValidityDataOracle
@@ -142,6 +144,38 @@ def run_test_cases():
                                     str(info['steps_eq_oracle'])]) + "\n")
     output_file.close()
 
+def run_test_cases_09():
+    output_file = open("Benchmarking/incomplete_dfa_benchmark/solve2.csv", "w")
+    output_file.write("file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
+    Oliveira = testCasesPath + "/oliveira"
+    target_folder = "s10"
+    folder_path = os.path.join(Oliveira, target_folder)
+    for file_name in sorted(os.listdir(folder_path)):
+        print(f"oliveira/{target_folder}/{file_name}")
+        info = run_test_case(f"oliveira/{target_folder}/{file_name}")
+        output_file.write(','.join([f"oliveira/{target_folder}/{file_name}",
+                                    str(info['successful']),
+                                    str(info['learning_rounds']),
+                                    str(info['automaton_size']),
+                                    str(info['learning_time']),
+                                    str(info['smt_time']),
+                                    str(info['eq_oracle_time']),
+                                    str(info['total_time']),
+                                    str(info['queries_learning']),
+                                    str(info['validity_query']),
+                                    str(info['rule1']),
+                                    str(info['rule2']),
+                                    str(info['rule3']),
+                                    str(info['rule4']),
+                                    str(info['nodes']),
+                                    str(info['informative_nodes']),
+                                    str(info['analyzed_bases']),
+                                    str(info['sul_steps']),
+                                    str(info['cache_saved']),
+                                    str(info['queries_eq_oracle']),
+                                    str(info['steps_eq_oracle'])]) + "\n")
+    output_file.close()
+
 def run_test_cases_specific(test_files):
     output_file = open("Benchmarking/incomplete_dfa_benchmark/output.csv", "w")
     output_file.write("file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
@@ -172,11 +206,15 @@ def run_test_cases_specific(test_files):
                                 str(info['steps_eq_oracle'])]) + "\n")
     output_file.close()
 
-
-#run_test_cases()
-run_test_cases_specific(["oliveira/04_11/randm11.02.02.19.020_0030.05.aba.beta",
-                       "oliveira/s11/randm11.02.02.19.020_0030.05.aba.beta",
-                       "oliveira/04_11/randm11.02.02.19.020_0030.02.aba.beta"])
+# profiler = cProfile.Profile()
+# profiler.enable()
+run_test_cases_09()
+# profiler.disable()
+# stats = pstats.Stats(profiler).sort_stats('cumtime')
+# stats.print_stats(40)  # Show top 20 functions by cumulative time
+# run_test_cases_specific(["oliveira/04_11/randm11.02.02.19.020_0030.05.aba.beta",
+#                        "oliveira/s11/randm11.02.02.19.020_0030.05.aba.beta",
+#                        "oliveira/04_11/randm11.02.02.19.020_0030.02.aba.beta"])
 #run_test_cases_specific(["lee_alpharegex/1"])
 #run_test_case("oliveira/04_11/randm11.02.02.19.020_0030.05.aba.beta", print_level=4)
 #run_test_case("oliveira/04_09/randm09.02.02.01.020_0030.03.aba.beta", print_level=4)

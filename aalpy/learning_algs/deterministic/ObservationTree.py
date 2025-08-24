@@ -63,6 +63,9 @@ class MooreNode:
                 result += "\t" + str(succesor).replace("\n", "\n\t")
             return result
 
+    def __lt__(self, other):
+        return True
+
 
 class MealyNode:
     _id_counter = 0

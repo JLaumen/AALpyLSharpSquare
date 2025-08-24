@@ -1,5 +1,7 @@
 import time
 from collections import deque
+import copy
+import heapq
 
 # from .ADS import Ads
 from .Apartness import Apartness
@@ -47,7 +49,9 @@ class ObservationTreeSquare:
 
         self.basis = []
         self.basis.append(self.root)
-        self.queue = deque()
+        self.guaranteed_basis = []
+        self.guaranteed_basis.append(self.root)
+        self.queue = []
         self.frontier_to_basis_dict = {}
 
         # Caches the separating sequences between basis nodes
@@ -61,10 +65,7 @@ class ObservationTreeSquare:
         """
         current_node = self.root
         for input_val in inputs:
-            if current_node.get_successor(input_val) is None:
                 current_node = current_node.extend_and_get(input_val, None)
-            else:
-                current_node = current_node.get_successor(input_val)
         current_node.output = output_val
 
         if not output_val in self.outputAlphabet:
@@ -80,8 +81,7 @@ class ObservationTreeSquare:
         current_node = self.root
         for input_val, output_val in zip(inputs, outputs):
             current_node = current_node.extend_and_get(input_val, output_val)
-            if current_node.output is None:
-                current_node.output = output_val
+            current_node.output = output_val
             if not output_val in self.outputAlphabet:
                 self.outputAlphabet.append(output_val)
 
@@ -193,7 +193,7 @@ class ObservationTreeSquare:
         Updates the frontier to basis map, promotes a frontier node and checks for consistency
         """
         self.update_frontier_to_basis_dict()
-        self.promote_frontier_node_in_queue()
+        self.promote_frontier_node_in_queue_reset()
         self.check_frontier_consistency()
         self.update_frontier_to_basis_dict()
 
@@ -228,16 +228,19 @@ class ObservationTreeSquare:
         """
         adds a new basis to the queue with all nodes in the current basis + the new basis node
         """
-        new_basises = self.basis.copy()
+        new_bases = self.basis.copy()
         new_frontier_to_basis_dict = {k: self.frontier_to_basis_dict[k].copy() for k in self.frontier_to_basis_dict}
 
-        new_basises.append(new_basis_node)
+        new_bases.append(new_basis_node)
         del new_frontier_to_basis_dict[new_basis_node]
 
         for frontier_node, new_basis_options in new_frontier_to_basis_dict.items():
             if not Apartness.states_are_apart(new_basis_node, frontier_node, self):
                 new_basis_options.append(new_basis_node)
-        self.queue.append((new_basises, new_frontier_to_basis_dict))
+        not_apart_len = len(self.frontier_to_basis_dict[new_basis_node])
+        basis_len = len(new_bases)
+        heapq.heappush(self.queue, (basis_len, not_apart_len, new_bases, new_frontier_to_basis_dict))
+        # self.queue.append((new_bases, new_frontier_to_basis_dict))
 
     def promote_frontier_node_in_queue(self):
         """
@@ -249,7 +252,60 @@ class ObservationTreeSquare:
             if not basis_list:
                 new_basis = iso_frontier_node
                 self.basis.append(new_basis)
-                self.frontier_to_basis_dict.pop(new_basis)
+                del self.frontier_to_basis_dict[new_basis]
+                for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
+                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                        new_basis_list.append(new_basis)
+                already_in_queue = False
+                for basis2, _ in self.queue:
+                    if set(basis2) == set(self.basis):
+                        already_in_queue = True
+                if not already_in_queue:
+                    not_apart_len = len(self.frontier_to_basis_dict[iso_frontier_node])
+                    basis_len = len(self.basis)
+                    heapq.heappush(self.queue, (basis_len, not_apart_len, self.basis, self.frontier_to_basis_dict))
+                    # self.queue.append((self.basis, self.frontier_to_basis_dict))
+                _, _, self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
+                self.bases_analyzed += 1
+                self.rule1_applications += 1
+                break
+
+    def promote_frontier_node_in_queue_reset(self):
+        """
+        If an isolated frontier node is found, reset the queue and restart from the guaranteed basis plus the isolated node.
+        """
+        for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
+            if not basis_list:
+                # New basis: guaranteed basis + isolated node (preserving order)
+                new_basis = self.guaranteed_basis.copy()
+                new_basis.append(iso_frontier_node)
+                # Remove the isolated node from the frontier
+                new_frontier_to_basis_dict = {k: v.copy() for k, v in self.frontier_to_basis_dict.items() if
+                                              k != iso_frontier_node}
+                # Update basis candidates for remaining frontier nodes
+                for frontier_node, new_basis_list in new_frontier_to_basis_dict.items():
+                    new_basis_list[:] = [b for b in new_basis if not Apartness.states_are_apart(b, frontier_node, self)]
+                # Reset the queue to only contain the new minimal basis
+                self.queue.clear()
+                self.queue.append((new_basis, new_frontier_to_basis_dict))
+                self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
+                # Update guaranteed_basis as well
+                self.guaranteed_basis = new_basis.copy()
+                self.bases_analyzed += 1
+                self.rule1_applications += 1
+                break
+
+    def promote_frontier_node_in_queue_filter(self):
+        """
+        checks the queue, if there is an isolated frontier node,
+        it combines the current basis with the isolated frontier node,
+        and adds this to the queue
+        """
+        for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
+            if not basis_list:
+                new_basis = iso_frontier_node
+                self.basis.append(new_basis)
+                del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
                     if not Apartness.states_are_apart(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
@@ -259,6 +315,12 @@ class ObservationTreeSquare:
                         already_in_queue = True
                 if not already_in_queue:
                     self.queue.append((self.basis, self.frontier_to_basis_dict))
+                filtered_queue = []
+                for basis2, f2b2 in self.queue:
+                    if iso_frontier_node in basis2:
+                        filtered_queue.append((basis2, f2b2))
+                print("Filtered queue base lengths:", [len(basis2) for basis2, _ in filtered_queue])
+                self.queue = deque(filtered_queue)
                 self.basis, self.frontier_to_basis_dict = self.queue.popleft()
                 self.bases_analyzed += 1
                 self.rule1_applications += 1
@@ -497,6 +559,7 @@ class ObservationTreeSquare:
             OutputAlphabet = [False, True]
 
         # each basis has an output
+        start_smt_time = time.time()
         s = z3.Solver()
         """
         "m" represents the mapping from frontier/basis nodes to automaton states
@@ -553,7 +616,6 @@ class ObservationTreeSquare:
                     eq_to_base_num2 = m(delta(eq_to_base_num, input_index))
                     queue.append((node2, eq_to_base_num2))
 
-        start_smt_time = time.time()
         if s.check() == z3.unsat:
             self.smt_time += time.time() - start_smt_time
             return None, None
@@ -567,6 +629,119 @@ class ObservationTreeSquare:
 
             return transition_mapping, output_mapping
 
+    def solve_blanks(self):
+        assert self.automaton_type == "dfa"
+        basis = self.basis
+        frontier = list(self.frontier_to_basis_dict.keys())
+        input_alphabet = self.alphabet
+        output_alphabet = [True, False]
+
+        s = z3.Solver()
+
+        # Create a variable for each node in the observation tree.
+        # These variables represent the output (True/False) of each node.
+        # We use BFS to traverse the tree and create variables.
+        # We immediately add constraints to set the correct range for each variable,
+        # namely that it must correspond to what we already know about the output.
+        queue = deque([self.root])
+        out = dict()
+        while queue:
+            node = queue.popleft()
+            node_var = z3.Bool(f'out_{node.id}')
+            out[node] = node_var
+            if node.output != "unknown" and node.output is not None:
+                s.add(node_var == node.output)
+            for successor in node.successors.values():
+                queue.append(successor)
+
+        # Add constraints to ensure that each frontier node is
+        # not apart from at least one basis node.
+        for frontier_node, basis_list in self.frontier_to_basis_dict.items():
+            # We can assume that basis_list is not empty,
+            # otherwise we would have promoted this frontier node.
+
+            # Keep track of the constraints for non-apartness for each basis node
+            not_apart_constraints = []
+            for basis_node in basis_list:
+                # Keep track of the constraints for non-apartness for this specific basis node
+                not_apart_constraint = []
+                # BFS over pairs of nodes starting from (frontier_node, basis_node)
+                pairs = deque([(frontier_node, basis_node)])
+                while pairs:
+                    first_node, second_node = pairs.popleft()
+                    # The outputs must be the same for non-apartness
+                    constraint = (out[first_node] == out[second_node])
+                    not_apart_constraint.append(constraint)
+                    for input_val in input_alphabet:
+                        # Add the successors to the queue, if they both exist
+                        first_succ = first_node.get_successor(input_val)
+                        second_succ = second_node.get_successor(input_val)
+                        if first_succ is not None and second_succ is not None:
+                            pairs.append((first_succ, second_succ))
+                # Combine all constraints for this basis node with AND
+                if not_apart_constraint:
+                    not_apart_constraints.append(z3.And(not_apart_constraint))
+            # Combine the non-apartness constraints for all basis nodes with OR
+            if not_apart_constraints:
+                s.add(z3.Or(not_apart_constraints))
+
+        start_smt_time = time.time()
+        if s.check() == z3.unsat:
+            self.smt_time += time.time() - start_smt_time
+            return None, None
+
+        self.smt_time += time.time() - start_smt_time
+        model = s.model()
+
+        # Deep copy the observation tree
+        self.saved_tree = copy.deepcopy(self.root)
+        self.saved_frontier_to_basis_dict = {k: v.copy() for k, v in self.frontier_to_basis_dict.items()}
+
+        # Traverse the copied tree and fill in outputs
+        queue = deque([self.root])
+        while queue:
+            node = queue.popleft()
+            if node.output == "unknown":
+                # Get the z3 variable name for this node
+                node_var = z3.Bool(f'out_{node.id}')
+                # Assign the value from the model
+                node.output = z3.is_true(model.evaluate(node_var, model_completion=True))
+            for successor in node.successors.values():
+                queue.append(successor)
+
+        # Update the frontier_to_basis_dict to reflect the new outputs
+        self.update_frontier_to_basis_dict()
+
+        # Create the output mapping for the basis nodes
+        output_mapping = dict()
+        for basis_node in self.basis:
+            output_mapping[basis_node] = basis_node.output
+
+        # Create the transition mapping from frontier nodes to basis nodes
+        transition_mapping = dict()
+        for frontier_node in self.frontier_to_basis_dict:
+            candidates = self.frontier_to_basis_dict[frontier_node]
+            if candidates:
+                transition_mapping[frontier_node] = candidates[0]
+            else:
+                raise RuntimeError("No basis candidates found for a frontier node after solving blanks.")
+
+        # print(output_mapping)
+        # print(transition_mapping)
+        # Restore the original tree outputs by traversing both trees simultaneously
+        queue = deque([(self.root, self.saved_tree)])
+        while queue:
+            curr_node, saved_node = queue.popleft()
+            curr_node.output = saved_node.output
+            for inp in curr_node.successors:
+                if inp in saved_node.successors:
+                    queue.append((curr_node.successors[inp], saved_node.successors[inp]))
+
+        self.frontier_to_basis_dict = self.saved_frontier_to_basis_dict
+
+        return transition_mapping, output_mapping
+
+
     def build_hypothesis(self):
         """
         Builds the hypothesis which will be sent to the SUL and checks consistency
@@ -574,6 +749,7 @@ class ObservationTreeSquare:
         while True:
             self.find_adequate_observation_tree()
             self.rule4_applications += 1
+            # transition_mapping, output_mapping = self.solve_blanks()
             transition_mapping, output_mapping = self.find_mapping()
             if not (transition_mapping is None or output_mapping is None):
                 hypothesis = self.construct_hypothesis(transition_mapping=transition_mapping,
@@ -587,7 +763,7 @@ class ObservationTreeSquare:
                 self.process_counter_example(hypothesis, counter_example, cex_output)
             else:
                 addable_frontier_nodes = set(self.frontier_to_basis_dict.keys()).copy()
-                for basis2, _ in self.queue:
+                for _, _, basis2, _ in self.queue:
                     if not set(self.basis) - set(basis2):
                         extra_nodes = set(basis2) - set(self.basis)
                         if len(extra_nodes) == 1:
@@ -595,7 +771,7 @@ class ObservationTreeSquare:
                             addable_frontier_nodes.remove(node)
                 for frontier_node in addable_frontier_nodes:
                     self.add_frontier_to_queue(frontier_node)
-                self.basis, self.frontier_to_basis_dict = self.queue.popleft()
+                _, _, self.basis, self.frontier_to_basis_dict = heapq.heappop(self.queue)
                 self.bases_analyzed += 1
 
     def find_adequate_observation_tree(self):
@@ -607,7 +783,7 @@ class ObservationTreeSquare:
         while not self.is_observation_tree_adequate():
             self.make_frontier_complete()
             self.make_frontiers_identified()
-            self.promote_frontier_node_in_queue()
+            self.promote_frontier_node_in_queue_reset()
 
     # Counterexample Processing
 
@@ -675,7 +851,6 @@ class ObservationTreeSquare:
                         outputs.append(self.sul.query(inputs[:inp_num + 1]))
                     else:
                         outputs.append(current_node.output)
-            # print("_get_output_sequence", outputs)
             return outputs
 
     def _process_binary_search(self, hypothesis, cex_inputs, cex_outputs):
@@ -727,7 +902,7 @@ class ObservationTreeSquare:
             self._process_binary_search(hypothesis, sigma1, cex_outputs[:h])
         else:
             new_inputs = list(hyp_p_access) + sigma2
-            self._process_binary_search(
+            self._process_linear_search(
                 hypothesis, new_inputs, query_outputs[:len(new_inputs)])
 
         return None
