@@ -35,12 +35,8 @@ if __name__ == "__main__":
     folder = 'Benchmarking/incomplete_dfa_benchmark'
     prefix = 'oliveira/'
     csv_files = [
-        os.path.join(folder, 'initial_benchmark.csv'),
-        os.path.join(folder, 'reset.csv'),
-        os.path.join(folder, 'filter.csv'),
-        os.path.join(folder, 'output.csv'),
-        os.path.join(folder, 'solve.csv'),
-        os.path.join(folder, 'solve2.csv')
+        os.path.join(folder, 'benchmark.csv'),
+        os.path.join(folder, 'benchmark2.csv')
     ]
     for csv_file in csv_files:
         if os.path.exists(csv_file):

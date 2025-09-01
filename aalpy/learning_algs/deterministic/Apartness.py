@@ -80,29 +80,44 @@ class Apartness:
         first_node = tree.get_successor(first_input)
         second_node = tree.get_successor(second_input)
         result = Apartness.merge(first_node, second_node)
+        if result != Apartness.states_are_apart(first, second, ob_tree):
+            print("Difference!")
         return result
 
     @staticmethod
     def merge(first, second):
-        # Merge the second node into the first node, and return whether there is a fonflict
-        # Get the new output
-        if first.output is "unknown":
+        # Merge the second node into the first node, and return whether there is a conflict
+        if first.output == "unknown" or first.output is None:
             first.output = second.output
-        elif second.output is not "unknown" and first.output != second.output:
+        elif (second.output != "unknown" and second.output is not None) and first.output != second.output:
             return True
-        # Modify the parent of the second node to point to the first node
-        if second.parent:
-            second.parent.successors[second.input_to_parent] = first
-        # Merge the children
-        for input_val, second_succ in second.successors.items():
-            if input_val in first.successors and first.successors[input_val] is not second_succ:
-                conflict = Apartness.merge(first.successors[input_val], second_succ)
+
+        keys = list(second.successors.keys())
+        for input_val in keys:
+            if input_val in first.successors:
+                conflict = Apartness.merge(first.successors[input_val], second.successors[input_val])
                 if conflict:
                     return True
             else:
-                first.successors[input_val] = second_succ
+                first.successors[input_val] = second.successors[input_val]
         return False
 
+    @staticmethod
+    def test_merge():
+        from .ObservationTree import MooreNode, MealyNode
+        s = MooreNode()
+        t = MooreNode()
+        r = MooreNode()
+        q = MooreNode()
+        p = MooreNode()
+        p.add_successor('a', False, s)
+        p.add_successor('b', True, q)
+        q.add_successor('b', True, r)
+        r.add_successor('a', True, t)
+        # print(p)
+        print(Apartness._show_states_are_apart_moore(p, q, ['a', 'b']))
+        print(Apartness.merge(p, q))
+        # print(p)
     
     @staticmethod
     def _get_distinguishing_sequences(group, ob_tree):
