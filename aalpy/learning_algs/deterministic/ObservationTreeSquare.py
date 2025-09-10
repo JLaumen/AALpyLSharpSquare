@@ -622,7 +622,7 @@ class ObservationTreeSquare:
         # each basis has an output
         start_smt_time = time.time()
         s = z3.Solver()
-        s.set(unsat_core=True)
+        # s.set(unsat_core=True)
         """
         "m" represents the mapping from frontier/basis nodes to automaton states
         "delta" is the transition function
@@ -677,9 +677,10 @@ class ObservationTreeSquare:
 
         if s.check() == z3.unsat:
             self.smt_time += time.time() - start_smt_time
-            unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
+            # unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
             # print(unsat_core)
-            return None, unsat_core
+            # return None, unsat_core
+            return None, None
         else:
             self.smt_time += time.time() - start_smt_time
             model = s.model()
@@ -687,6 +688,84 @@ class ObservationTreeSquare:
                 output_mapping[basis[b]] = z3.is_true(model.evaluate(out(b)))
             for f in range(len(frontier)):
                 transition_mapping[frontier[f]] = basis[model.evaluate(m(f + len(basis))).as_long()]
+
+            return transition_mapping, output_mapping
+
+    def passive(self):
+        """
+        Find a hypothesis consistent with the observation tree, using the z3 SMT solver.
+        There are 2 free functions: "out" and "m" and 1 bound function "delta".
+        """
+        assert self.automaton_type == "moore" or self.automaton_type == "dfa", "mealy not implemented yet"
+
+        start_smt_time = time.time()
+        s = z3.Solver()
+
+        delta = z3.Function('d', z3.IntSort(), z3.IntSort(), z3.IntSort())
+        F = z3.Function('F', z3.IntSort(), z3.BoolSort())
+        D = z3.Function('D', z3.IntSort(), z3.IntSort())
+
+        # Flatten the tree to a list of nodes
+        queue = deque([self.root])
+        nodes = [self.root]
+        while queue:
+            node = queue.popleft()
+            idx = nodes.index(node)
+            for letter, succ in node.successors.items():
+                queue.append(succ)
+                s.add(D(len(nodes)) == delta(D(idx), self.alphabet.index(letter)))
+                nodes.append(succ)
+
+        """
+        "m" represents the mapping from frontier/basis nodes to automaton states
+        "delta" is the transition function
+        "out is the output function
+        """
+
+
+        # Basis nodes map to themselves
+        for i in range(len(self.basis)):
+            node = self.basis[i]
+            s.add(D(nodes.index(node)) == i)
+
+        # Force known outputs
+        for i in range(len(nodes)):
+            if self.is_known(nodes[i]):
+                s.add(F(D(i)) == nodes[i].output)
+
+        # Frontiers only map to candidates
+        for node, candidates in self.frontier_to_basis_dict.items():
+            s.add(z3.Or([D(nodes.index(node)) == self.basis.index(c) for c in candidates]))
+
+        # Correct delta
+        for i in range(len(self.basis)):
+            for j in range(len(self.alphabet)):
+                s.add(0 <= delta(i, j))
+                s.add(delta(i, j) < len(self.basis))
+
+        # Fix known delta transitions for basis to basis nodes
+        # for i in range(len(self.basis)):
+        #     node = self.basis[i]
+        #     for letter, succ in node.successors.items():
+        #         if succ in self.basis:
+        #             s.add(delta(i, self.alphabet.index(letter)) == self.basis.index(succ))
+
+        transition_mapping = dict()
+        output_mapping = dict()
+
+        if s.check() == z3.unsat:
+            self.smt_time += time.time() - start_smt_time
+            # unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
+            # print(unsat_core)
+            # return None, unsat_core
+            return None, None
+        else:
+            self.smt_time += time.time() - start_smt_time
+            model = s.model()
+            for node in self.basis:
+                output_mapping[node] = z3.is_true(model.evaluate(F(D(nodes.index(node)))))
+            for node in self.frontier_to_basis_dict.keys():
+                transition_mapping[node] = self.basis[model.evaluate(D(nodes.index(node))).as_long()]
 
             return transition_mapping, output_mapping
 
@@ -821,7 +900,7 @@ class ObservationTreeSquare:
             self.find_adequate_observation_tree()
             self.rule4_applications += 1
             # transition_mapping, output_mapping = self.solve_blanks()
-            transition_mapping, output_mapping = self.find_mapping()
+            transition_mapping, output_mapping = self.passive()
             if transition_mapping is not None:
                 hypothesis = self.construct_hypothesis(transition_mapping=transition_mapping,
                                                        output_mapping=output_mapping)
@@ -835,13 +914,13 @@ class ObservationTreeSquare:
                 cex_output = self.get_observation(counter_example)
                 self.process_counter_example(hypothesis, counter_example, cex_output)
             else:
-                unsat_core = output_mapping
+                # unsat_core = output_mapping
                 addable_frontier_nodes = set(self.frontier_to_basis_dict.keys()).copy()
                 # if unsat_core:
                 #     addable_frontier_nodes = addable_frontier_nodes.intersection(unsat_core)
-                if addable_frontier_nodes.intersection(set(self.basis)):
-                    print("overlap")
-                addable_frontier_nodes = addable_frontier_nodes - set(self.basis)
+                # if addable_frontier_nodes.intersection(set(self.basis)):
+                #     print("overlap")
+                # addable_frontier_nodes = addable_frontier_nodes - set(self.basis)
                 # print(addable_frontier_nodes)
                 for basis2, _ in self.queue:
                     if not set(self.basis) - set(basis2):
