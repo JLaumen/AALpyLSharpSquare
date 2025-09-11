@@ -80,6 +80,7 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
         # Pose Equivalence Query
         eq_query_start = time.time()
         cex = eq_oracle.find_cex(hypothesis)
+        # print(cex)
         eq_query_time += time.time() - eq_query_start
         validity_queries += 1
 
@@ -91,6 +92,7 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
 
         # Process the counterexample and start a new learning round
         cex_output = sul.query(cex)
+        # print(cex_output)
         ob_tree.process_counter_example(hypothesis, cex, cex_output)
 
     total_time = time.time() - start_time

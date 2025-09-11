@@ -8,6 +8,10 @@ from .Apartness import Apartness
 from ... import Dfa, DfaState, MealyState, MealyMachine, MooreMachine, MooreState
 import z3
 from .ObservationTree import MooreNode, MealyNode
+from pysmt.shortcuts import (
+    Solver, Symbol, Function, Int, Bool, And, Or, Equals, GE, LT
+)
+from pysmt.typing import INT, BOOL, FunctionType
 
 # Supported automata types
 aut_type = ['dfa']
@@ -47,6 +51,8 @@ class ObservationTreeSquare:
         self.guaranteed_basis = [self.root]
         self.queue = deque()
         self.frontier_to_basis_dict = dict()
+
+        self.global_constraints = []
 
     def insert_observation(self, inputs, output_val):
         """
@@ -252,6 +258,7 @@ class ObservationTreeSquare:
         If an isolated frontier node is found, reset the queue and restart from the guaranteed basis plus the isolated node.
         """
         for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
+            # if not set(basis_list).intersection(set(self.guaranteed_basis)):
             if not basis_list:
                 # New basis: guaranteed basis + isolated node (preserving order)
                 new_basis = self.guaranteed_basis.copy()
@@ -516,89 +523,6 @@ class ObservationTreeSquare:
 
         return hypothesis
 
-    def fill_blanks(self):
-        assert self.automaton_type == "moore" or self.automaton_type == "dfa", "mealy not implemented yet"
-        transition_mapping = dict()
-        output_mapping = dict()
-
-        basis = self.basis
-        basis_len = len(basis)
-        basis_bits = ceil(log(basis_len, 2)) if basis_len > 1 else 1
-        frontier = list(self.frontier_to_basis_dict.keys())
-        frontier_len = len(frontier)
-        frontier_bits = ceil(log(basis_len + frontier_len, 2)) if (basis_len + frontier_len) > 1 else 1
-        input_alphabet = self.alphabet
-        input_alphabet_len = len(input_alphabet)
-        input_alphabet_bits = ceil(log(input_alphabet_len, 2)) if (input_alphabet_len > 1) else 1
-
-        # each basis has an output
-        start_smt_time = time.time()
-        s = z3.Solver()
-
-        """
-        "m" represents the mapping from frontier/basis nodes to automaton states
-        "delta" is the transition function
-        "out is the output function
-        """
-        out = z3.Function('out', z3.IntSort(), z3.BoolSort())
-        delta = z3.Function('d', z3.IntSort(), z3.IntSort(), z3.IntSort())
-        m = z3.Function('m', z3.IntSort(), z3.IntSort())
-
-        # Flatten the tree to a list of nodes
-        queue = deque([self.root])
-        nodes = [self.root]
-        while queue:
-            node = queue.popleft()
-            idx = len(nodes) - 1
-            for i in range(input_alphabet_len):
-                letter = input_alphabet[i]
-                succ = node.get_successor(letter)
-                if succ is not None:
-                    queue.append(succ)
-                    nodes.append(succ)
-                    s.add(delta(idx, i) == len(nodes))
-                else:
-                    s.add(delta(idx, i) == -1)
-        nodes_len = len(nodes)
-
-        # Force known outputs
-        s.add([out(n) == nodes[n].output for n in range(nodes_len) if self.is_known(nodes[n])])
-
-        # The frontier nodes map to one of its candidates
-        for f in range(frontier_len):
-            basis_options = [basis.index(b) for b in self.frontier_to_basis_dict[frontier[f]]]
-            print(basis_options)
-            s.add(z3.Or([m(f) == b for b in basis_options]))
-
-        # The frontier node is not apart from the node it maps to
-        for f in range(frontier_len):
-            frontier_node = nodes.index(frontier[f])
-            basis_node = m(f)
-            queue = deque([(frontier_node, basis_node)])
-            while queue:
-                first, second = queue.popleft()
-                s.add(z3.Or(out(first) == out(second), second == -1))
-                for letter in input_alphabet:
-                    first_succ = nodes[first].get_successor(letter)
-                    second_succ = delta(second, input_alphabet.index(letter))
-                    if first_succ is not None:
-                        queue.append((nodes.index(first_succ), second_succ))
-
-        if s.check() == z3.unsat:
-            self.smt_time += time.time() - start_smt_time
-            print("unsat")
-            return None, None
-        else:
-            print("sat")
-            self.smt_time += time.time() - start_smt_time
-            model = s.model()
-            for b in range(len(basis)):
-                output_mapping[basis[b]] = z3.is_true(model.evaluate(out(b)))
-            for f in range(len(frontier)):
-                transition_mapping[frontier[f]] = nodes[model.evaluate(m(f)).as_long()]
-
-            return transition_mapping, output_mapping
-
     def find_mapping(self):
         """
         Find a hypothesis consistent with the observation tree, using the z3 SMT solver.
@@ -693,204 +617,117 @@ class ObservationTreeSquare:
 
     def passive(self):
         """
-        Find a hypothesis consistent with the observation tree, using the z3 SMT solver.
+        Find a hypothesis consistent with the observation tree, using the pySMT solver.
         There are 2 free functions: "out" and "m" and 1 bound function "delta".
         """
-        assert self.automaton_type == "moore" or self.automaton_type == "dfa", "mealy not implemented yet"
+        assert self.automaton_type in ("moore", "dfa"), "mealy not implemented yet"
 
         start_smt_time = time.time()
-        s = z3.Solver()
+        s = Solver(name="z3")  # or another backend supported by pySMT
 
-        delta = z3.Function('d', z3.IntSort(), z3.IntSort(), z3.IntSort())
-        F = z3.Function('F', z3.IntSort(), z3.BoolSort())
-        D = z3.Function('D', z3.IntSort(), z3.IntSort())
+        # Function declarations
+        delta = Symbol("delta", FunctionType(INT, [INT, INT]))   # d: int × int → int
+        F = Symbol("F", FunctionType(BOOL, [INT]))               # F: int → bool
+        D = Symbol("D", FunctionType(INT, [INT]))                # D: int → int
 
         # Flatten the tree to a list of nodes
         queue = deque([self.root])
         nodes = [self.root]
+        constraints = []
+
+        # print(list(map(self.get_access_sequence, self.basis)))
         while queue:
             node = queue.popleft()
+            # print(self.get_access_sequence(node))
+            # print(self._get_output_sequence(['1', '1', '0']))
             idx = nodes.index(node)
             for letter, succ in node.successors.items():
                 queue.append(succ)
-                s.add(D(len(nodes)) == delta(D(idx), self.alphabet.index(letter)))
+                constraints.append(
+                    Function(D, [Int(len(nodes))]) \
+                    .Equals(Function(delta, [Function(D, [Int(idx)]), Int(self.alphabet.index(letter))]))
+                )
+                # if self.get_access_sequence(succ) in [['1', '1', '0'], ['1', '1'], ['1'], []]:
+                    # print("here")
+                    # print(constraints[-1])
                 nodes.append(succ)
-
-        """
-        "m" represents the mapping from frontier/basis nodes to automaton states
-        "delta" is the transition function
-        "out is the output function
-        """
-
+        # print("Nodes in the observation tree:", len(nodes))
 
         # Basis nodes map to themselves
-        for i in range(len(self.basis)):
-            node = self.basis[i]
-            s.add(D(nodes.index(node)) == i)
+        for i, node in enumerate(self.basis):
+            constraints.append(Function(D, [Int(nodes.index(node))]).Equals(Int(i)))
 
         # Force known outputs
-        for i in range(len(nodes)):
-            if self.is_known(nodes[i]):
-                s.add(F(D(i)) == nodes[i].output)
+        for i, node in enumerate(nodes):
+            if self.is_known(node):
+                val = Bool(node.output)
+                constraints.append(Function(F, [Function(D, [Int(i)])]).Iff(val))
+                # if(self.get_access_sequence(node) == ['1', '1', '0']):
+                    # print("here")
+                    # print(constraints[-1])
 
         # Frontiers only map to candidates
         for node, candidates in self.frontier_to_basis_dict.items():
-            s.add(z3.Or([D(nodes.index(node)) == self.basis.index(c) for c in candidates]))
+            constraints.append(Or([
+                Function(D, [Int(nodes.index(node))]).Equals(Int(self.basis.index(c)))
+                for c in candidates
+            ]))
 
         # Correct delta
         for i in range(len(self.basis)):
             for j in range(len(self.alphabet)):
-                s.add(0 <= delta(i, j))
-                s.add(delta(i, j) < len(self.basis))
+                d_ij = Function(delta, [Int(i), Int(j)])
+                constraints.append(GE(d_ij, Int(0)))
+                constraints.append(LT(d_ij, Int(len(self.basis))))
 
         # Fix known delta transitions for basis to basis nodes
-        # for i in range(len(self.basis)):
-        #     node = self.basis[i]
-        #     for letter, succ in node.successors.items():
-        #         if succ in self.basis:
-        #             s.add(delta(i, self.alphabet.index(letter)) == self.basis.index(succ))
+        for i, node in enumerate(self.basis):
+            for letter, succ in node.successors.items():
+                if succ in self.basis:
+                    constraints.append(
+                        Function(delta, [Int(i), Int(self.alphabet.index(letter))]) \
+                        .Equals(Int(self.basis.index(succ)))
+                    )
 
-        transition_mapping = dict()
-        output_mapping = dict()
+        # Add the global constraints
+        # for input_seq, output in self.global_constraints:
+        #     current_node = Int(0)
+        #     for input_val in input_seq:
+        #         current_node = Function(delta, [current_node, Int(self.alphabet.index(input_val))])
+        #     constraints.append(Function(F, [current_node]).Iff((Bool(not output[-1]))))
 
-        if s.check() == z3.unsat:
+        # Add all constraints to solver
+        # print(constraints)
+        s.add_assertion(And(constraints))
+
+        if not s.solve():
             self.smt_time += time.time() - start_smt_time
-            # unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
-            # print(unsat_core)
-            # return None, unsat_core
             return None, None
         else:
             self.smt_time += time.time() - start_smt_time
-            model = s.model()
+            model = s.get_model()
+
+            transition_mapping = dict()
+            output_mapping = dict()
+
             for node in self.basis:
-                output_mapping[node] = z3.is_true(model.evaluate(F(D(nodes.index(node)))))
+                val = model.get_value(Function(F, [Function(D, [Int(nodes.index(node))])]))
+                # print("Basis node output:")
+                # print(model.get_value(Function(D, [Int(nodes.index(node))])))
+                # print(nodes.index(node))
+                # print(type(val), str(val))
+                output_mapping[node] = str(val) == "True"
+
             for node in self.frontier_to_basis_dict.keys():
-                transition_mapping[node] = self.basis[model.evaluate(D(nodes.index(node))).as_long()]
+                val = model.get_value(Function(D, [Int(nodes.index(node))]))
+                # print(type(val), str(val))
+                transition_mapping[node] = self.basis[int(str(val))]
+
+            # print(model.get_value(Function(F, [Function(D, [Int(13)])])))
+            # print(model.get_value(Function(D, [Int(13)])))
+            # print(len(self.basis), len(self.frontier_to_basis_dict), len(nodes))
 
             return transition_mapping, output_mapping
-
-    def solve_blanks(self):
-        assert self.automaton_type == "dfa"
-        basis = self.basis
-        frontier = list(self.frontier_to_basis_dict.keys())
-        input_alphabet = self.alphabet
-        output_alphabet = [True, False]
-
-        s = z3.Solver()
-        s.set(unsat_core=True)
-        start_smt_time = time.time()
-
-        # Create a variable for each node in the observation tree.
-        # These variables represent the output (True/False) of each node.
-        # We use BFS to traverse the tree and create variables.
-        # We immediately add constraints to set the correct range for each variable,
-        # namely that it must correspond to what we already know about the output.
-        queue = deque([self.root])
-        out = dict()
-        while queue:
-            node = queue.popleft()
-            node_var = z3.Bool(f'out_{node.id}')
-            out[node] = node_var
-            if self.is_known(node):
-                s.add(node_var == node.output)
-            for successor in node.successors.values():
-                queue.append(successor)
-
-        frontier = list(self.frontier_to_basis_dict.keys())
-
-        # Add constraints to ensure that each frontier node is
-        # not apart from at least one basis node.
-        for frontier_node, basis_list in self.frontier_to_basis_dict.items():
-            # We can assume that basis_list is not empty,
-            # otherwise we would have promoted this frontier node.
-
-            # Keep track of the constraints for non-apartness for each basis node
-            not_apart_constraints = []
-            visited = set()
-            for basis_node in basis_list:
-                # Keep track of the constraints for non-apartness for this specific basis node
-                not_apart_constraint = []
-                # BFS over pairs of nodes starting from (frontier_node, basis_node)
-                pairs = deque([(frontier_node, basis_node)])
-                while pairs:
-                    first_node, second_node = pairs.popleft()
-                    if (first_node, second_node) in visited:
-                        continue
-                    visited.add((first_node, second_node))
-                    # The outputs must be the same for non-apartness
-                    constraint = (out[first_node] == out[second_node])
-                    not_apart_constraint.append(constraint)
-                    for input_val in input_alphabet:
-                        # Add the successors to the queue, if they both exist
-                        first_succ = first_node.get_successor(input_val)
-                        second_succ = second_node.get_successor(input_val)
-                        if first_succ is not None and second_succ is not None:
-                            pairs.append((first_succ, second_succ))
-                # Combine all constraints for this basis node with AND
-                if not_apart_constraint:
-                    not_apart_constraints.append(z3.And(not_apart_constraint))
-            # Combine the non-apartness constraints for all basis nodes with OR
-            if not_apart_constraints:
-                # print(f"Adding {len(not_apart_constraints)} not apart constraints")
-                s.assert_and_track(z3.Or(not_apart_constraints), f'{frontier.index(frontier_node)}')
-                s.add(z3.Or(not_apart_constraints))
-        # print(" ")
-
-        if s.check() == z3.unsat:
-            self.smt_time += time.time() - start_smt_time
-            unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
-            return None, unsat_core
-
-        self.smt_time += time.time() - start_smt_time
-        model = s.model()
-
-        # Deep copy the observation tree
-        self.saved_tree = copy.deepcopy(self.root)
-        self.saved_frontier_to_basis_dict = {k: v.copy() for k, v in self.frontier_to_basis_dict.items()}
-
-        # Traverse the copied tree and fill in outputs
-        queue = deque([self.root])
-        while queue:
-            node = queue.popleft()
-            if node.output == "unknown":
-                # Get the z3 variable name for this node
-                node_var = z3.Bool(f'out_{node.id}')
-                # Assign the value from the model
-                node.output = z3.is_true(model.evaluate(node_var, model_completion=True))
-            for successor in node.successors.values():
-                queue.append(successor)
-
-        # Update the frontier_to_basis_dict to reflect the new outputs
-        self.update_frontier_to_basis_dict()
-
-        # Create the output mapping for the basis nodes
-        output_mapping = dict()
-        for basis_node in self.basis:
-            output_mapping[basis_node] = basis_node.output
-
-        # Create the transition mapping from frontier nodes to basis nodes
-        transition_mapping = dict()
-        for frontier_node in self.frontier_to_basis_dict:
-            candidates = self.frontier_to_basis_dict[frontier_node]
-            if candidates:
-                transition_mapping[frontier_node] = candidates[0]
-            else:
-                raise RuntimeError("No basis candidates found for a frontier node after solving blanks.")
-
-        # print(output_mapping)
-        # print(transition_mapping)
-        # Restore the original tree outputs by traversing both trees simultaneously
-        queue = deque([(self.root, self.saved_tree)])
-        while queue:
-            curr_node, saved_node = queue.popleft()
-            curr_node.output = saved_node.output
-            for inp in curr_node.successors:
-                if inp in saved_node.successors:
-                    queue.append((curr_node.successors[inp], saved_node.successors[inp]))
-
-        self.frontier_to_basis_dict = self.saved_frontier_to_basis_dict
-
-        return transition_mapping, output_mapping
 
     def build_hypothesis(self):
         """
@@ -908,8 +745,11 @@ class ObservationTreeSquare:
                                                                                           hypothesis.initial_state)
                 if not counter_example:
                     return hypothesis
-                # else:
-                #     print("Counter example found:", counter_example)
+                else:
+                    print("Counter example found:", counter_example)
+                    print(self._get_output_sequence(counter_example, query_mode="none"))
+                    print(hypothesis.compute_output_seq(hypothesis.initial_state, counter_example))
+                    self.global_constraints.append((counter_example, self.get_observation(counter_example)))
 
                 cex_output = self.get_observation(counter_example)
                 self.process_counter_example(hypothesis, counter_example, cex_output)

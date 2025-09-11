@@ -218,7 +218,10 @@ class Apartness:
                 else:
                     hyp_output = hyp_state.output
 
+                # print(tree_output, hyp_output)
                 if tree_output != hyp_output and tree_output not in ["unknown", None]:
+                    # print(type(tree_output), type(hyp_output))
+                    # print("Distinguishing outputs:", tree_output, hyp_output)
                     return ob_tree.get_transfer_sequence(ob_tree_state, tree_state)
 
                 for input_val in ob_tree.alphabet:

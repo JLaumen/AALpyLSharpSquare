@@ -1,0 +1,226 @@
+    def construct_hypothesis(self, transition_mapping=None, output_mapping=None):
+        # Construct a hypothesis (Mealy Machine) based on the observation tree
+
+        # Build the DFA states
+        states = []
+        for i in range(len(self.basis)):
+            state_id = f's{i}'
+            states.append(DfaState(state_id, is_accepting=output_mapping[i]))
+
+        # Add transitions
+        for (start, letter), end in transition_mapping.items():
+            start_state = states[start]
+            end_state = states[end]
+            states[start].transitions[letter] = end_state
+        
+        hypothesis = Dfa(states[0], states)
+        print(hypothesis)
+
+        # self.construct_hypothesis_states(output_mapping=output_mapping)
+        # self.construct_hypothesis_transitions(transition_mapping=transition_mapping, output_mapping=output_mapping)
+
+        # automaton_class = {'dfa': Dfa, 'mealy': MealyMachine, 'moore': MooreMachine}
+        # hypothesis = automaton_class[self.automaton_type](
+        #     self.states_dict[self.root], list(self.states_dict.values()))
+        # hypothesis.compute_prefixes()
+        # hypothesis.characterization_set = hypothesis.compute_characterization_set(raise_warning=False)
+
+        return hypothesis
+
+    def find_mapping(self):
+        """
+        Find a hypothesis consistent with the observation tree, using the z3 SMT solver.
+        There are 2 free functions: "out" and "m" and 1 bound function "delta".
+        """
+        assert self.automaton_type == "moore" or self.automaton_type == "dfa", "mealy not implemented yet"
+        transition_mapping = dict()
+        output_mapping = dict()
+
+        basis = self.basis
+        frontier = list(self.frontier_to_basis_dict.keys())
+        input_alphabet = self.alphabet
+        output_alphabet = self.outputAlphabet.copy()
+        if "unknown" in output_alphabet:
+            output_alphabet.remove("unknown")
+        if None in output_alphabet:
+            output_alphabet.remove(None)
+        if not output_alphabet:
+            output_alphabet = [False, True]
+
+        # each basis has an output
+        start_smt_time = time.time()
+        s = z3.Solver()
+        # s.set(unsat_core=True)
+        """
+        "m" represents the mapping from frontier/basis nodes to automaton states
+        "delta" is the transition function
+        "out is the output function
+        """
+        out = z3.Function('out', z3.IntSort(), z3.BoolSort())
+        delta = z3.Function('d', z3.IntSort(), z3.IntSort(), z3.IntSort())
+        m = z3.Function('m', z3.IntSort(), z3.IntSort())
+        # basis nodements
+        for b in range(len(basis)):
+            # out function
+            # if output value basis i known then out(i) must be corresponding index
+            # else make sure output value is index in OutputAlphabet
+            if basis[b].output != "unknown":
+                s.add(out(b) == basis[b].output)
+            # d transitions
+            for input_index in range(len(input_alphabet)):
+                to_node = basis[b].get_successor(input_alphabet[input_index])
+                if to_node in basis:
+                    s.add(delta(b, input_index) == basis.index(to_node))
+                else:
+                    s.add(delta(b, input_index) == len(basis) + frontier.index(to_node))
+            # m mapping
+            s.add(m(b) == b)
+
+        queue = []  # (node, equation to base (number))
+        # frontier nodements and making queue
+        for f in range(len(frontier)):
+            # m mapping
+            basis_options = [basis.index(b) for b in self.frontier_to_basis_dict[frontier[f]]]
+            s.assert_and_track(z3.Or([m(f + len(basis)) == b for b in basis_options]), f'{f}')
+            s.add(z3.Or([m(f + len(basis)) == b for b in basis_options]))
+            # out function
+            if frontier[f].output != "unknown":
+                s.add(out(m(f + len(basis))) == frontier[f].output)
+            # add to queue
+            for input_index in range(len(input_alphabet)):
+                node = frontier[f].get_successor(input_alphabet[input_index])
+                if not node is None:
+                    eq_to_base_num = m(delta(m(f + len(basis)), input_index))
+                    queue.append((node, eq_to_base_num))
+        while queue:
+            node, eq_to_base_num = queue.pop(0)
+            if node.output != "unknown" and node.output is not None:
+                s.add(out(eq_to_base_num) == node.output)
+            # add more to queue
+            for input_index in range(len(input_alphabet)):
+                node2 = node.get_successor(input_alphabet[input_index])
+                if not node2 is None:
+                    eq_to_base_num2 = m(delta(eq_to_base_num, input_index))
+                    queue.append((node2, eq_to_base_num2))
+
+        if s.check() == z3.unsat:
+            self.smt_time += time.time() - start_smt_time
+            # unsat_core = set(map(lambda x: frontier[int(x.decl().name())], s.unsat_core()))
+            # print(unsat_core)
+            # return None, unsat_core
+            return None, None
+        else:
+            self.smt_time += time.time() - start_smt_time
+            model = s.model()
+            for b in range(len(basis)):
+                output_mapping[basis[b]] = z3.is_true(model.evaluate(out(b)))
+            for f in range(len(frontier)):
+                transition_mapping[frontier[f]] = basis[model.evaluate(m(f + len(basis))).as_long()]
+
+            return transition_mapping, output_mapping
+
+    def passive(self):
+        """
+        Find a hypothesis consistent with the observation tree, using the pySMT solver.
+        There are 2 free functions: "out" and "m" and 1 bound function "delta".
+        """
+        assert self.automaton_type in ("moore", "dfa"), "mealy not implemented yet"
+
+        start_smt_time = time.time()
+        s = Solver(name="z3")  # or another backend supported by pySMT
+
+        # Function declarations
+        delta = Symbol("delta", FunctionType(INT, [INT, INT]))   # d: int × int → int
+        F = Symbol("F", FunctionType(BOOL, [INT]))               # F: int → bool
+        D = Symbol("D", FunctionType(INT, [INT]))                # D: int → int
+
+        # Flatten the tree to a list of nodes
+        queue = deque([self.root])
+        nodes = [self.root]
+        constraints = []
+
+        # print(list(map(self.get_access_sequence, self.basis)))
+        while queue:
+            node = queue.popleft()
+            # print(self.get_access_sequence(node))
+            # print(self._get_output_sequence(['1', '1', '0']))
+            idx = nodes.index(node)
+            for letter, succ in node.successors.items():
+                queue.append(succ)
+                constraints.append(
+                    Function(D, [Int(len(nodes))]) \
+                    .Equals(Function(delta, [Function(D, [Int(idx)]), Int(self.alphabet.index(letter))]))
+                )
+                # if self.get_access_sequence(succ) in [['1', '1', '0'], ['1', '1'], ['1'], []]:
+                    # print("here")
+                    # print(constraints[-1])
+                nodes.append(succ)
+        # print("Nodes in the observation tree:", len(nodes))
+
+        # Basis nodes map to themselves
+        for i, node in enumerate(self.basis):
+            constraints.append(Function(D, [Int(nodes.index(node))]).Equals(Int(i)))
+
+        # Force known outputs
+        for i, node in enumerate(nodes):
+            if self.is_known(node):
+                val = Bool(node.output)
+                constraints.append(Function(F, [Function(D, [Int(i)])]).Iff(val))
+                # if(self.get_access_sequence(node) == ['1', '1', '0']):
+                    # print("here")
+                    # print(constraints[-1])
+
+        # Frontiers only map to candidates
+        for node, candidates in self.frontier_to_basis_dict.items():
+            constraints.append(Or([
+                Function(D, [Int(nodes.index(node))]).Equals(Int(self.basis.index(c)))
+                for c in candidates
+            ]))
+
+        # Correct delta
+        for i in range(len(self.basis)):
+            for j in range(len(self.alphabet)):
+                d_ij = Function(delta, [Int(i), Int(j)])
+                constraints.append(GE(d_ij, Int(0)))
+                constraints.append(LT(d_ij, Int(len(self.basis))))
+
+        # Fix known delta transitions for basis to basis nodes
+        for i, node in enumerate(self.basis):
+            for letter, succ in node.successors.items():
+                if succ in self.basis:
+                    constraints.append(
+                        Function(delta, [Int(i), Int(self.alphabet.index(letter))]) \
+                        .Equals(Int(self.basis.index(succ)))
+                    )
+
+        # Add the global constraints
+        # for input_seq, output in self.global_constraints:
+        #     current_node = Int(0)
+        #     for input_val in input_seq:
+        #         current_node = Function(delta, [current_node, Int(self.alphabet.index(input_val))])
+        #     constraints.append(Function(F, [current_node]).Iff((Bool(not output[-1]))))
+
+        # Add all constraints to solver
+        print(constraints)
+        s.add_assertion(And(constraints))
+
+        if not s.solve():
+            self.smt_time += time.time() - start_smt_time
+            return None, None
+        else:
+            self.smt_time += time.time() - start_smt_time
+            model = s.get_model()
+
+            # transition_mapping = dict()
+            # output_mapping = dict()
+            transition_mapping = dict()
+            output_mapping = []
+            for i in range(len(self.basis)):
+                output = str(model.get_value(Function(F, [Function(D, [Int(idx)])]))) == "True"
+                output_mapping.append(output)
+                for j in range(len(self.alphabet)):
+                    d_ij = model.get_value(Function(delta, [Int(i), Int(j)]))
+                    transition_mapping[(i, self.alphabet[j])] = int(str(d_ij))
+            print("Output mapping:", output_mapping)
+            print("Transition mapping:", transition_mapping)
+            return transition_mapping, output_mapping
