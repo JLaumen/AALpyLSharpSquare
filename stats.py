@@ -19,7 +19,7 @@ def analyze_and_average(csv_path, prefix):
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            if row['file name'].startswith(prefix):
+            if row['file name'].startswith(prefix) and row['automaton_size'] == "10":
                 sums['learning_time'] += float(row['learning_time'])
                 sums['learning_rounds'] += int(row['learning_rounds'])
                 sums['queries_learning'] += int(row['queries_learning'])

@@ -1,5 +1,68 @@
 from collections import deque
 from copy import deepcopy
+from copy import copy
+
+class MooreNode:
+    _id_counter = 0
+    __slots__ = ['id', 'output', 'successors', 'parent', 'input_to_parent']
+
+    def __init__(self, parent=None):
+        MooreNode._id_counter += 1
+        self.id = MooreNode._id_counter
+        self.output = None
+        self.successors = {}
+        self.parent = parent
+        self.input_to_parent = None
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def add_successor(self, input_val, output_val, successor_node):
+        """ Adds a successor node to the current node based on input """
+        self.successors[input_val] = successor_node
+        self.successors[input_val].output = output_val
+
+    def get_successor(self, input_val):
+        """ Returns the successor node for the given input """
+        if input_val in self.successors:
+            return self.successors[input_val]
+        return None
+
+    def extend_and_get(self, inp, output):
+        """ Extend the node with a new successor and return the successor node """
+        if inp in self.successors:
+            return self.successors[inp]
+        successor_node = MooreNode(parent=self)
+        self.add_successor(inp, output, successor_node)
+        successor_node.input_to_parent = inp
+        return successor_node
+
+    @property
+    def id_counter(self):
+        return self._id_counter
+    
+    def __str__(self):
+        compactCounterExamples = True
+        if compactCounterExamples and self.output==None and len(self.successors) == 1:
+            #skip printing this node and print the child instead.
+            succesor = list(self.successors.values())[0]
+            result = str(succesor)
+            return result
+        else:
+            inputs = []
+            current_node = self
+            while not current_node.parent is None:
+                inputs.insert(0, current_node.input_to_parent)
+                current_node = current_node.parent
+
+            result = "node " + str(inputs) + " / " + str(self.output)
+            for input_val, succesor in self.successors.items():
+                result += "\n" + str(input_val) + ":\n"
+                result += "\t" + str(succesor).replace("\n", "\n\t")
+            return result
+
+    def __lt__(self, other):
+        return False
 
 
 class Apartness:
@@ -71,15 +134,35 @@ class Apartness:
         return None
 
     @staticmethod
+    def clone_subtree(node, visited=None):
+        if visited is None:
+            visited = {}
+        if node in visited:
+            return visited[node]
+        # Assume node has .output and .successors
+        new_node = MooreNode()
+        visited[node] = new_node
+        new_node.successors = {}
+        for k, v in node.successors.items():
+            new_node.successors[k] = Apartness.clone_subtree(v, visited)
+            new_node.successors[k].parent = new_node
+            new_node.successors[k].input_to_parent = k
+        new_node.output = node.output
+        return new_node
+
+    @staticmethod
     def states_are_incompatible(first, second, ob_tree):
         # Get the input to the nodes
         first_input = ob_tree.get_access_sequence(first)
         second_input = ob_tree.get_access_sequence(second)
-        # Make a copy of the tree
-        tree = deepcopy(ob_tree)
+        # Instead of deepcopy, reconstruct only the relevant subtrees
+        
+        tree = copy(ob_tree)
+        tree.root = Apartness.clone_subtree(tree.root)
         first_node = tree.get_successor(first_input)
         second_node = tree.get_successor(second_input)
         result = Apartness.merge(first_node, second_node)
+        # print(result, Apartness.states_are_apart(first, second, ob_tree))
         if result != Apartness.states_are_apart(first, second, ob_tree):
             print("Difference!")
         return result

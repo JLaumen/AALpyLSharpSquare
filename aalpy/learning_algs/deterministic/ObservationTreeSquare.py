@@ -9,9 +9,10 @@ from ... import Dfa, DfaState, MealyState, MealyMachine, MooreMachine, MooreStat
 import z3
 from .ObservationTree import MooreNode, MealyNode
 from pysmt.shortcuts import (
-    Solver, Symbol, Function, Int, Bool, And, Or, Equals, GE, LT
+    Solver, Symbol, Function, Int, Bool, And, Or, Equals, GE, LT, Not, Iff
 )
 from pysmt.typing import INT, BOOL, FunctionType
+
 
 # Supported automata types
 aut_type = ['dfa']
@@ -258,8 +259,8 @@ class ObservationTreeSquare:
         If an isolated frontier node is found, reset the queue and restart from the guaranteed basis plus the isolated node.
         """
         for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
-            # if not set(basis_list).intersection(set(self.guaranteed_basis)):
-            if not basis_list:
+            if not set(basis_list) & set(self.guaranteed_basis):
+            # if not basis_list:
                 # New basis: guaranteed basis + isolated node (preserving order)
                 new_basis = self.guaranteed_basis.copy()
                 new_basis.append(iso_frontier_node)
@@ -279,6 +280,8 @@ class ObservationTreeSquare:
                 self.bases_analyzed += 1
                 self.rule1_applications += 1
                 break
+            # elif not set(basis_list).intersection(set(self.guaranteed_basis)):
+            #     print("Warning: Isolated frontier node found but not promoted due to existing basis nodes outside guaranteed basis.")
 
     def promote_frontier_node_in_queue_filter(self):
         """
@@ -633,7 +636,6 @@ class ObservationTreeSquare:
         # Flatten the tree to a list of nodes
         queue = deque([self.root])
         nodes = [self.root]
-        constraints = []
 
         # print(list(map(self.get_access_sequence, self.basis)))
         while queue:
@@ -643,7 +645,7 @@ class ObservationTreeSquare:
             idx = nodes.index(node)
             for letter, succ in node.successors.items():
                 queue.append(succ)
-                constraints.append(
+                s.add_assertion(
                     Function(D, [Int(len(nodes))]) \
                     .Equals(Function(delta, [Function(D, [Int(idx)]), Int(self.alphabet.index(letter))]))
                 )
@@ -655,20 +657,20 @@ class ObservationTreeSquare:
 
         # Basis nodes map to themselves
         for i, node in enumerate(self.basis):
-            constraints.append(Function(D, [Int(nodes.index(node))]).Equals(Int(i)))
+            s.add_assertion(Function(D, [Int(nodes.index(node))]).Equals(Int(i)))
 
         # Force known outputs
         for i, node in enumerate(nodes):
             if self.is_known(node):
                 val = Bool(node.output)
-                constraints.append(Function(F, [Function(D, [Int(i)])]).Iff(val))
+                s.add_assertion(Function(F, [Function(D, [Int(i)])]).Iff(val))
                 # if(self.get_access_sequence(node) == ['1', '1', '0']):
                     # print("here")
                     # print(constraints[-1])
 
         # Frontiers only map to candidates
         for node, candidates in self.frontier_to_basis_dict.items():
-            constraints.append(Or([
+            s.add_assertion(Or([
                 Function(D, [Int(nodes.index(node))]).Equals(Int(self.basis.index(c)))
                 for c in candidates
             ]))
@@ -677,14 +679,14 @@ class ObservationTreeSquare:
         for i in range(len(self.basis)):
             for j in range(len(self.alphabet)):
                 d_ij = Function(delta, [Int(i), Int(j)])
-                constraints.append(GE(d_ij, Int(0)))
-                constraints.append(LT(d_ij, Int(len(self.basis))))
+                s.add_assertion(GE(d_ij, Int(0)))
+                s.add_assertion(LT(d_ij, Int(len(self.basis))))
 
         # Fix known delta transitions for basis to basis nodes
         for i, node in enumerate(self.basis):
             for letter, succ in node.successors.items():
                 if succ in self.basis:
-                    constraints.append(
+                    s.add_assertion(
                         Function(delta, [Int(i), Int(self.alphabet.index(letter))]) \
                         .Equals(Int(self.basis.index(succ)))
                     )
@@ -698,7 +700,6 @@ class ObservationTreeSquare:
 
         # Add all constraints to solver
         # print(constraints)
-        s.add_assertion(And(constraints))
 
         if not s.solve():
             self.smt_time += time.time() - start_smt_time
@@ -729,6 +730,105 @@ class ObservationTreeSquare:
 
             return transition_mapping, output_mapping
 
+    def coloring(self):
+        start_smt_time = time.time()
+        s = Solver(name="z3")  # or another backend supported by pySMT
+
+        # Flatten the tree to a list of nodes
+        queue = deque([self.root])
+        nodes = [self.root]
+        while queue:
+            node = queue.popleft()
+            for succ in node.successors.values():
+                queue.append(succ)
+                nodes.append(succ)
+
+        # Variable declarations
+        color = [[Symbol(f"x_{v}_{i}", BOOL) for i in range(len(self.basis))] for v in range(len(nodes))]
+        parent = [[[Symbol(f"y_{a}_{i}_{j}", BOOL) for j in range(len(self.basis))] for i in range(len(self.basis))] for a in range(len(self.alphabet))]
+        accept = [Symbol(f"z_{i}", BOOL) for i in range(len(self.basis))]
+
+        # Each node has at least one color
+        for v in range(len(nodes)):
+            s.add_assertion(Or(color[v]))
+
+        # Accepting vertices cannot have the same color as rejecting vertices
+        for v in range(len(nodes)):
+            for w in range(len(nodes)):
+                if nodes[v].output is True and nodes[w].output is False:
+                    for i in range(len(self.basis)):
+                        s.add_assertion(And(Or(Not(color[v][i]), accept[i]), Or(Not(color[w][i]), Not(accept[i]))))
+
+        # A parent relation is set when a vertex and its parent are colored
+        for v in range(1, len(nodes)):
+            for i in range(len(self.basis)):
+                for j in range(len(self.basis)):
+                    label = nodes[v].input_to_parent
+                    lv = self.alphabet.index(label)
+                    p = nodes.index(nodes[v].parent)
+                    s.add_assertion(Or(parent[lv][i][j], Not(color[p][i]), Not(color[v][j])))
+
+        # Each parent relation can target at most one color
+        for a in range(len(self.alphabet)):
+            for i in range(len(self.basis)):
+                for j in range(len(self.basis)):
+                    for h in range(j):
+                        s.add_assertion(Or(Not(parent[a][i][h]), Not(parent[a][i][j])))
+
+        # Each basis node has a unique color
+        for i in range(len(self.basis)):
+            s.add_assertion(color[nodes.index(self.basis[i])][i])
+
+        # Each vertex has at most one color
+        for v in range(len(nodes)):
+            for i in range(len(self.basis)):
+                for j in range(i):
+                    s.add_assertion(Or(Not(color[v][i]), Not(color[v][j])))
+
+        # Each parent relation has at least one color
+        for a in range(len(self.alphabet)):
+            for i in range(len(self.basis)):
+                s.add_assertion(Or(parent[a][i]))
+
+        # A parent relation forces a vertex once the parent is colored
+        for v in range(1, len(nodes)):
+            for i in range(len(self.basis)):
+                for j in range(len(self.basis)):
+                    label = nodes[v].input_to_parent
+                    lv = self.alphabet.index(label)
+                    p = nodes.index(nodes[v].parent)
+                    s.add_assertion(Or(Not(parent[lv][i][j]), Not(color[p][i]), color[v][j]))
+
+        # All conflicts
+        for i in range(len(self.basis)):
+            for w in range(1,len(nodes)):
+                v = nodes.index(nodes[w].parent)
+                s.add_assertion(Or(Not(color[v][i]), Not(color[w][i])))
+
+        if not s.solve():
+            self.smt_time += time.time() - start_smt_time
+            return None, None
+        else:
+            self.smt_time += time.time() - start_smt_time
+            model = s.get_model()
+            transition_mapping = dict()
+            output_mapping = dict()
+            # Output mapping
+            for i in range(len(self.basis)):
+                val = model.get_value(accept[i])
+                output_mapping[self.basis[i]] = str(val) == "True"
+            # Transition mapping
+            # If a frontier node has the same color as a basis node, map it to that basis node
+            for v in range(len(nodes)):
+                node = nodes[v]
+                if node in self.frontier_to_basis_dict:
+                    for i in range(len(self.basis)):
+                        val = model.get_value(color[v][i])
+                        if str(val) == "True":
+                            transition_mapping[node] = self.basis[i]
+                            break
+            return transition_mapping, output_mapping
+
     def build_hypothesis(self):
         """
         Builds the hypothesis which will be sent to the SUL and checks consistency
@@ -741,18 +841,7 @@ class ObservationTreeSquare:
             if transition_mapping is not None:
                 hypothesis = self.construct_hypothesis(transition_mapping=transition_mapping,
                                                        output_mapping=output_mapping)
-                counter_example = Apartness.compute_witness_in_tree_and_hypothesis_states(self, self.root,
-                                                                                          hypothesis.initial_state)
-                if not counter_example:
-                    return hypothesis
-                else:
-                    print("Counter example found:", counter_example)
-                    print(self._get_output_sequence(counter_example, query_mode="none"))
-                    print(hypothesis.compute_output_seq(hypothesis.initial_state, counter_example))
-                    self.global_constraints.append((counter_example, self.get_observation(counter_example)))
-
-                cex_output = self.get_observation(counter_example)
-                self.process_counter_example(hypothesis, counter_example, cex_output)
+                return hypothesis
             else:
                 # unsat_core = output_mapping
                 addable_frontier_nodes = set(self.frontier_to_basis_dict.keys()).copy()
