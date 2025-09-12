@@ -201,7 +201,7 @@ class ObservationTreeSquare:
 
         basis_list = self.frontier_to_basis_dict[frontier_node]
         new_basis_list = [basis_node for basis_node in basis_list if
-                          not Apartness.states_are_apart(frontier_node, basis_node, self)]
+                          not Apartness.states_are_incompatible(frontier_node, basis_node, self)]
         self.frontier_to_basis_dict[frontier_node] = new_basis_list
 
     def update_frontier_to_basis_dict(self):
@@ -211,7 +211,7 @@ class ObservationTreeSquare:
         """
         for frontier_node, basis_list in self.frontier_to_basis_dict.items():
             new_basis_list = [basis_node for basis_node in basis_list if
-                              not Apartness.states_are_apart(frontier_node, basis_node, self)]
+                              not Apartness.states_are_incompatible(frontier_node, basis_node, self)]
             self.frontier_to_basis_dict[frontier_node] = new_basis_list
 
     def add_frontier_to_queue(self, new_basis_node):
@@ -225,7 +225,7 @@ class ObservationTreeSquare:
         del new_frontier_to_basis_dict[new_basis_node]
 
         for frontier_node, new_basis_options in new_frontier_to_basis_dict.items():
-            if not Apartness.states_are_apart(new_basis_node, frontier_node, self):
+            if not Apartness.states_are_incompatible(new_basis_node, frontier_node, self):
                 new_basis_options.append(new_basis_node)
         self.queue.append((new_basis, new_frontier_to_basis_dict))
 
@@ -241,7 +241,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -270,7 +270,7 @@ class ObservationTreeSquare:
                 # Update basis candidates for remaining frontier nodes
                 for frontier_node, new_basis_list in new_frontier_to_basis_dict.items():
                     new_basis_list[:] = [b for b in new_basis if
-                                         not Apartness.states_are_apart(b, frontier_node, self)]
+                                         not Apartness.states_are_incompatible(b, frontier_node, self)]
                 # Reset the queue to only contain the new minimal basis
                 self.queue.clear()
                 self.queue.append((new_basis, new_frontier_to_basis_dict))
@@ -295,7 +295,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -338,7 +338,7 @@ class ObservationTreeSquare:
 
                 self.frontier_to_basis_dict[maybe_frontier] = [
                     new_basis_node for new_basis_node in self.basis
-                    if not Apartness.states_are_apart(new_basis_node, maybe_frontier, self)
+                    if not Apartness.states_are_incompatible(new_basis_node, maybe_frontier, self)
                 ]
 
     def is_observation_tree_adequate(self):
@@ -402,7 +402,7 @@ class ObservationTreeSquare:
     def find_basis_candidates(self, new_frontier):
         return {
             new_basis_node for new_basis_node in self.basis
-            if not Apartness.states_are_apart(new_basis_node, new_frontier, self)
+            if not Apartness.states_are_incompatible(new_basis_node, new_frontier, self)
         }
 
     def explore_frontier(self, basis_node, inp):

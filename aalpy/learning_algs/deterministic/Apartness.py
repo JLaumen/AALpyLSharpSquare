@@ -151,16 +151,24 @@ class Apartness:
         return new_node
 
     @staticmethod
+    def get_successors(node, input_val):
+        for input in input_val:
+            if node is None:
+                return None
+            node = node.get_successor(input)
+        return node
+        
+
+    @staticmethod
     def states_are_incompatible(first, second, ob_tree):
         # Get the input to the nodes
         first_input = ob_tree.get_access_sequence(first)
         second_input = ob_tree.get_access_sequence(second)
         # Instead of deepcopy, reconstruct only the relevant subtrees
         
-        tree = copy(ob_tree)
-        tree.root = Apartness.clone_subtree(tree.root)
-        first_node = tree.get_successor(first_input)
-        second_node = tree.get_successor(second_input)
+        root = Apartness.clone_subtree(ob_tree.root)
+        first_node = Apartness.get_successors(root, first_input)
+        second_node = Apartness.get_successors(root, second_input)
         result = Apartness.merge(first_node, second_node)
         # print(result, Apartness.states_are_apart(first, second, ob_tree))
         if result != Apartness.states_are_apart(first, second, ob_tree):
