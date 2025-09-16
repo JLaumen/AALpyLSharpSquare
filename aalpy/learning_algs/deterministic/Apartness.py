@@ -1,69 +1,7 @@
 from collections import deque
 from copy import deepcopy
 from copy import copy
-
-class MooreNode:
-    _id_counter = 0
-    __slots__ = ['id', 'output', 'successors', 'parent', 'input_to_parent']
-
-    def __init__(self, parent=None):
-        MooreNode._id_counter += 1
-        self.id = MooreNode._id_counter
-        self.output = None
-        self.successors = {}
-        self.parent = parent
-        self.input_to_parent = None
-
-    def __hash__(self):
-        return hash(self.id)
-
-    def add_successor(self, input_val, output_val, successor_node):
-        """ Adds a successor node to the current node based on input """
-        self.successors[input_val] = successor_node
-        self.successors[input_val].output = output_val
-
-    def get_successor(self, input_val):
-        """ Returns the successor node for the given input """
-        if input_val in self.successors:
-            return self.successors[input_val]
-        return None
-
-    def extend_and_get(self, inp, output):
-        """ Extend the node with a new successor and return the successor node """
-        if inp in self.successors:
-            return self.successors[inp]
-        successor_node = MooreNode(parent=self)
-        self.add_successor(inp, output, successor_node)
-        successor_node.input_to_parent = inp
-        return successor_node
-
-    @property
-    def id_counter(self):
-        return self._id_counter
-    
-    def __str__(self):
-        compactCounterExamples = True
-        if compactCounterExamples and self.output==None and len(self.successors) == 1:
-            #skip printing this node and print the child instead.
-            succesor = list(self.successors.values())[0]
-            result = str(succesor)
-            return result
-        else:
-            inputs = []
-            current_node = self
-            while not current_node.parent is None:
-                inputs.insert(0, current_node.input_to_parent)
-                current_node = current_node.parent
-
-            result = "node " + str(inputs) + " / " + str(self.output)
-            for input_val, succesor in self.successors.items():
-                result += "\n" + str(input_val) + ":\n"
-                result += "\t" + str(succesor).replace("\n", "\n\t")
-            return result
-
-    def __lt__(self, other):
-        return False
-
+from .Nodes import *
 
 class Apartness:
     @staticmethod
@@ -134,17 +72,12 @@ class Apartness:
         return None
 
     @staticmethod
-    def clone_subtree(node, visited=None):
-        if visited is None:
-            visited = {}
-        if node in visited:
-            return visited[node]
-        # Assume node has .output and .successors
+    def clone_subtree(node, access):
         new_node = MooreNode()
-        visited[node] = new_node
+        new_node.access_sequence = access
         new_node.successors = {}
         for k, v in node.successors.items():
-            new_node.successors[k] = Apartness.clone_subtree(v, visited)
+            new_node.successors[k] = Apartness.clone_subtree(v, access + [k])
             new_node.successors[k].parent = new_node
             new_node.successors[k].input_to_parent = k
         new_node.output = node.output
@@ -157,41 +90,122 @@ class Apartness:
                 return None
             node = node.get_successor(input)
         return node
-        
 
     @staticmethod
     def states_are_incompatible(first, second, ob_tree):
-        # Get the input to the nodes
+        # Checking apartness is easier than checking incompatibility,
+        # so we check that first
+        if Apartness.states_are_apart(first, second, ob_tree):
+            return True
+
+        # Assumes that a node cannot be a descendant of a node with a higher id
+        if second.id < first.id:
+            first, second = second, first
+
+        # Unfortunately, we need to clone the tree to avoid modifying it.
+        # This is very slow (dominates the running time), so I am looking for a better solution.
+        # It works for testing the amount of queries though.
+        # The actual merging takes about the same time as the apartness checking over the course of the whole algorithm.
         first_input = ob_tree.get_access_sequence(first)
         second_input = ob_tree.get_access_sequence(second)
-        # Instead of deepcopy, reconstruct only the relevant subtrees
-        
-        root = Apartness.clone_subtree(ob_tree.root)
+        root = Apartness.clone_subtree(ob_tree.root, [])
         first_node = Apartness.get_successors(root, first_input)
         second_node = Apartness.get_successors(root, second_input)
-        result = Apartness.merge(first_node, second_node)
-        # print(result, Apartness.states_are_apart(first, second, ob_tree))
-        if result != Apartness.states_are_apart(first, second, ob_tree):
-            print("Difference!")
-        return result
+
+        # Try merging the two nodes, and see if there is a conflict.
+        # In case of a conflict, we get the access sequences to the nodes causing the conflict
+        first_access, second_access = Apartness.merge(first_node, second_node)
+
+        if first_access is not None:
+            # Incompatible!
+
+            # print("Conflict when merging", first.id, second.id)
+            # print(first_node.access_sequence, second_node.access_sequence)
+            # print(first_access, second_access)
+            # print("Apartness candidates:")
+
+            # Construct possible candidates that can prove apartness.
+            # The first candidate is the transfer sequence from the first node to the first node causing the conflict
+            candidate = first_access[len(first_node.access_sequence):]
+            candidates = [candidate]
+            # print(candidate)
+
+            # The other candidates are given by extending the candidate while walking backwards over the tree
+            # from the second node causing the conflict, until we reach the second node.
+            # This assumes that the first candidate is a suffix of the second access sequence,
+            # but that seems to hold.
+            while candidate != second_access[len(second_node.access_sequence):]:
+                candidate = [second_access[-len(candidate) - 1]] + candidate
+                candidates.append(candidate)
+                # print(candidate)
+
+            # From the list of candidates, we can construct the experiments.
+            # The pairs are given by simply appending the candidates to the two nodes.
+            # For now, we already do the experiments here.
+            # In theory, you can stop once an experiment shows apartness.
+            # print("Suggested experiments:")
+            for candidate in candidates:
+                # print(first_node.access_sequence + candidate, second_node.access_sequence + candidate)
+                res1 = ob_tree.experiment(first_node.access_sequence + candidate)
+                res2 = ob_tree.experiment(second_node.access_sequence + candidate)
+                # print("Experiment", res1, res2)
+                # print(Apartness.states_are_apart(first, second, ob_tree))
+            if Apartness.states_are_apart(first, second, ob_tree):
+                print("States are apart after experiments")
+            return True
+
+        # Compatible!
+        return False
 
     @staticmethod
     def merge(first, second):
-        # Merge the second node into the first node, and return whether there is a conflict
+        """
+        Merge the second node into the first node.
+        :param first: Node to merge into
+        :param second: Node to merge from
+        :return: Whether there was a conflict during the merge
+        """
+        # print("merging", first.id, second.id)
+        
+        # Prevent merging a node with itself
+        if first.id == second.id:
+            return None, None
+        
+        # Update the output of the first node,
+        # while ensuring local compatibility
         if first.output == "unknown" or first.output is None:
             first.output = second.output
         elif (second.output != "unknown" and second.output is not None) and first.output != second.output:
-            return True
+            return first.access_sequence, second.access_sequence
 
-        keys = list(second.successors.keys())
-        for input_val in keys:
-            if input_val in first.successors:
-                conflict = Apartness.merge(first.successors[input_val], second.successors[input_val])
-                if conflict:
-                    return True
+        # When merging two nodes, we might create a non-deterministic automaton.
+        # To solve this, we first recursively merge the nodes that would create non-determinism.
+        while True:
+            for input_val in second.successors.keys():
+                if input_val in first.successors and first.successors[input_val].id != second.successors[input_val].id:
+                    # Nodes share a common successor, so we need to merge those first
+                    first_access, second_access = Apartness.merge(first.successors[input_val], second.successors[input_val])
+                    if first_access is not None:
+                        # Merging successors led to a conflict
+                        return first_access, second_access
+                    break
             else:
-                first.successors[input_val] = second.successors[input_val]
-        return False
+                # No more common successors
+                break
+
+        # From this point on, we can assume that merges will not lead to a non-deterministic automaton,
+        # so we can simply copy the successors from the second node to the first node.
+        # Note that we don't actually use the "parent" attribute anywhere, so we don't need to update that.
+        for input_val in second.successors.keys():
+            first.successors[input_val] = second.successors[input_val]
+
+        first.id = f"{first.id}+{second.id}"
+
+        # Make second object point to first instead
+        second.id = first.id
+        second.output = first.output
+        second.successors = first.successors
+        return None, None
 
     @staticmethod
     def test_merge():
@@ -205,10 +219,16 @@ class Apartness:
         p.add_successor('b', True, q)
         q.add_successor('b', True, r)
         r.add_successor('a', True, t)
-        # print(p)
+        print(p)
+        print("p", p.id)
+        print("q", q.id)
+        print("r", r.id)
+        print("s", s.id)
+        print("t", t.id)
+        print(r.parent)
         print(Apartness._show_states_are_apart_moore(p, q, ['a', 'b']))
-        print(Apartness.merge(p, q))
-        # print(p)
+        # print(Apartness.merge(p, q))
+        print(Apartness.merge(q, p))
     
     @staticmethod
     def _get_distinguishing_sequences(group, ob_tree):

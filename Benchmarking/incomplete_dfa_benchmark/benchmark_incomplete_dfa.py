@@ -149,7 +149,7 @@ def run_test_cases():
 
 
 def run_test_cases_09():
-    output_file = open("Benchmarking/incomplete_dfa_benchmark/benchmark5.csv", "w")
+    output_file = open("Benchmarking/incomplete_dfa_benchmark/benchmark4.csv", "w")
     output_file.write(
         "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
     Oliveira = testCasesPath + "/oliveira"

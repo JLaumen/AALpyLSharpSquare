@@ -109,6 +109,20 @@ class ObservationTreeSquare:
             current_node = current_node.get_successor(input_val)
         return observation
 
+    def experiment(self, input):
+        """
+        Perform an experiment by querying the SUL if necessary and updating the tree.
+        :param input: input to query
+        :return: output from the tree or SUL
+        """
+        succ = self.get_successor(input)
+        if succ is None or succ.output is None:
+            # Query the SUL
+            output = self.sul.query(input)
+            self.insert_observation(input, output)
+            return output
+        return succ.output
+
     def get_successor(self, inputs, from_node=None):
         """
         Retrieve the node (subtree) corresponding to the given input sequence
