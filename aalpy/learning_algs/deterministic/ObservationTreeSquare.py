@@ -7,24 +7,19 @@ from math import log, ceil
 from .Apartness import Apartness
 from ... import Dfa, DfaState, MealyState, MealyMachine, MooreMachine, MooreState
 import z3
-from .ObservationTree import MooreNode, MealyNode
+from .Nodes import MooreNode, MealyNode
 from pysmt.shortcuts import (
     Solver, Symbol, Function, Int, Bool, And, Or, Equals, GE, LT, Not, Iff
 )
 from pysmt.typing import INT, BOOL, FunctionType
 
-
 # Supported automata types
 aut_type = ['dfa']
-
 
 class ObservationTreeSquare:
     def __init__(self, alphabet, sul, automaton_type):
         """
         Initializes the observation tree with a root node.
-        :param alphabet: Input alphabet
-        :param sul: System under learning
-        :param automaton_type: Type of automaton to learn
         """
         assert automaton_type in aut_type
         assert alphabet is not None and sul is not None
@@ -37,7 +32,6 @@ class ObservationTreeSquare:
         self.rule4_applications = 0
         self.bases_analyzed = 1
         MooreNode._id_counter = 0
-        MealyNode._id_counter = 0
 
         # Initialize tree
         self.alphabet = alphabet
@@ -53,144 +47,138 @@ class ObservationTreeSquare:
         self.queue = deque()
         self.frontier_to_basis_dict = dict()
 
-        self.global_constraints = []
-
-    def insert_observation(self, inputs, output_val):
+    def insert_observation(self, inputs, output):
         """
-        Insert an observation into the tree using sequences of inputs and the corresponding output.
-        :param inputs: List of inputs
-        :param output_val: Output corresponding to the input sequence
+        Insert an observation into the tree using a sequence of inputs and the corresponding output.
         """
-        current_node = self.root
-        for input_val in inputs:
-            current_node = current_node.extend_and_get(input_val, None)
-        current_node.output = output_val
+        node = self.root
+        for input in inputs:
+            node = node.extend_and_get(input, None)
+        node.output = output
 
     def insert_observation_sequence(self, inputs, outputs):
         """
-        Insert an observation into the tree using sequences of inputs and their corresponding outputs.
-        :param inputs: List of inputs
-        :param outputs: Outputs corresponding to the input sequence
+        Insert an observation into the tree using a sequence of inputs and their corresponding outputs.
         """
         if len(inputs) != len(outputs):
             raise ValueError("Inputs and outputs must have the same length.")
 
-        current_node = self.root
-        for input_val, output_val in zip(inputs, outputs):
-            current_node = current_node.extend_and_get(input_val, output_val)
-            current_node.output = output_val
+        node = self.root
+        for input, output in zip(inputs, outputs):
+            node = node.extend_and_get(input, output)
+            node.output = output
 
-    def get_observation(self, inputs):
+    def get_observations(self, inputs):
         """
-        Retrieve the list of outputs based on a given input sequence
+        Retrieve the list of outputs based on a given sequence of inputs.
         """
-        current_node = self.root
-        observation = []
-        for input_val in inputs:
-            current_node = current_node.get_successor(input_val)
-            output = current_node.output
-            if output is None:
-                return None
-            observation.append(output)
-        return observation
+        node = self.root
+        observations = []
+        for input in inputs:
+            node = node.get_successor(input)
+            output = node.output
+            observations.append(output)
+        return observations
 
-    def get_outputs(self, basis_node, inputs):
-        """
-        Retrieve the list of outputs based on a basis node and a given input sequence
-        """
-        prefix = self.get_transfer_sequence(self.root, basis_node)
-        current_node = self.get_successor(prefix)
-        observation = []
-        for input_val in inputs:
-            output = current_node.output
-            if output is None:
-                return None
-            observation.append(output)
-            current_node = current_node.get_successor(input_val)
-        return observation
+    # def get_outputs(self, start_node, inputs):
+    #     """
+    #     Retrieve the list of outputs based on a given sequence of inputs, starting from a specific node.
+    #     """
+    #     prefix = self.get_transfer_sequence(self.root, start_node)
+    #     node = self.get_successor(prefix)
+    #     observations = []
+    #     for input_val in inputs:
+    #         output = node.output
+    #         observations.append(output)
+    #         node = node.get_successor(input_val)
+    #     return observations
 
-    def experiment(self, input):
+    def experiment(self, inputs):
         """
         Perform an experiment by querying the SUL if necessary and updating the tree.
-        :param input: input to query
-        :return: output from the tree or SUL
         """
-        succ = self.get_successor(input)
-        if succ is None or succ.output is None:
+        node = self.get_successor(inputs)
+        if node is None or node.output is None:
             # Query the SUL
-            output = self.sul.query(input)
-            self.insert_observation(input, output)
+            output = self.sul.query(inputs)
+            self.insert_observation(inputs, output)
             return output
-        return succ.output
+        return node.output
 
-    def get_successor(self, inputs, from_node=None):
+    def get_successor(self, inputs, start_node=None):
         """
-        Retrieve the node (subtree) corresponding to the given input sequence
+        Retrieve the node corresponding to the given input sequence
         """
-        if from_node is None:
-            current_node = self.root
+        if start_node is None:
+            node = self.root
         else:
-            current_node = from_node
+            node = start_node
         for input_val in inputs:
-            successor_node = current_node.get_successor(input_val)
+            successor_node = node.get_successor(input_val)
             if successor_node is None:
                 return None
-            current_node = successor_node
-        return current_node
+            node = successor_node
+        return node
 
     @staticmethod
-    def get_transfer_sequence(from_node, to_node):
+    def get_transfer_sequence(start_node, end_node):
         """
-        Get the transfer sequence (inputs) that moves from one node to another
+        Get the sequence of inputs that moves from the start node to the end node.
         """
         transfer_sequence = []
-        current_node = to_node
+        node = end_node
 
-        while current_node != from_node:
-            if current_node.parent is None:
+        while node != start_node:
+            if node.parent is None:
                 return None
-            transfer_sequence.append(current_node.input_to_parent)
-            current_node = current_node.parent
+            transfer_sequence.append(node.input_to_parent)
+            node = node.parent
 
         transfer_sequence.reverse()
         return transfer_sequence
 
-    def get_access_sequence(self, to_node):
+    def get_access_sequence(self, target_node):
         """
-        Get the transfer sequence (inputs) that moves from one node to another
+        Get the sequence of inputs that moves from the root node to the target node.
         """
         transfer_sequence = []
-        current_node = to_node
+        node = target_node
 
-        while current_node != self.root:
-            if current_node.parent is None:
+        while node != self.root:
+            if node.parent is None:
                 return None
-            transfer_sequence.append(current_node.input_to_parent)
-            current_node = current_node.parent
+            transfer_sequence.append(node.input_to_parent)
+            node = node.parent
 
         transfer_sequence.reverse()
         return transfer_sequence
 
     def get_size(self):
+        """
+        Get the number of nodes in the observation tree.
+        """
         return self.root.id_counter
 
     @staticmethod
     def is_known(node):
+        """
+        Check if the output of a node is known.
+        """
         return node.output is not None and node.output != "unknown"
 
     def count_informative_nodes(self):
         """
         counts how many nodes have informative information
         """
-        node_queue = deque()
-        node_queue.append(self.root)
+        queue = deque()
+        queue.append(self.root)
         count = 0
-        while node_queue:
-            node = node_queue.popleft()
+        while queue:
+            node = queue.popleft()
             if self.is_known(node):
                 count += 1
             for successor in node.successors.values():
-                node_queue.append(successor)
+                queue.append(successor)
         return count
 
     # Functions related to finding new basis and frontier nodes
@@ -200,47 +188,42 @@ class ObservationTreeSquare:
         """
         self.update_frontier_to_basis_dict()
         self.promote_frontier_node_in_queue_reset()
-        self.check_frontier_consistency()
+        self.extend_frontier()
         self.update_frontier_to_basis_dict()
 
     def update_basis_candidates(self, frontier_node):
         """
-        Updates the basis candidates for the specified frontier node.
-        Removes basis nodes that are deemed apart from the frontier node.
+        Update the basis candidates for a specific frontier node.
         """
         if frontier_node not in self.frontier_to_basis_dict:
-            print(
-                f"Warning: {frontier_node} not found in frontier_to_basis_dict.")
-            return
+            raise RuntimeError(f"Node not in frontier")
 
-        basis_list = self.frontier_to_basis_dict[frontier_node]
-        new_basis_list = [basis_node for basis_node in basis_list if
-                          not Apartness.states_are_incompatible(frontier_node, basis_node, self)]
-        self.frontier_to_basis_dict[frontier_node] = new_basis_list
+        candidates = self.frontier_to_basis_dict[frontier_node]
+        new_candidates = [node for node in candidates if
+                          not Apartness.states_are_apart(frontier_node, node, self)]
+        self.frontier_to_basis_dict[frontier_node] = new_candidates
 
     def update_frontier_to_basis_dict(self):
         """
-        Checks for basis candidates (basis nodes with the same behavior) for each frontier node.
-        If a frontier node and a basis node are "apart", the basis node is removed from the basis list.
+        Update the basis candidates for all frontier nodes.
         """
-        for frontier_node, basis_list in self.frontier_to_basis_dict.items():
-            new_basis_list = [basis_node for basis_node in basis_list if
-                              not Apartness.states_are_incompatible(frontier_node, basis_node, self)]
-            self.frontier_to_basis_dict[frontier_node] = new_basis_list
+        for node in self.frontier_to_basis_dict:
+            self.update_basis_candidates(node)
 
     def add_frontier_to_queue(self, new_basis_node):
         """
-        adds a new basis to the queue with all nodes in the current basis + the new basis node
+        Add the current basis to the queue, extended with a new basis node.
         """
         new_basis = self.basis.copy()
-        new_frontier_to_basis_dict = {k: self.frontier_to_basis_dict[k].copy() for k in self.frontier_to_basis_dict}
+        new_frontier_to_basis_dict = {node: self.frontier_to_basis_dict[node].copy() for node in self.frontier_to_basis_dict}
 
         new_basis.append(new_basis_node)
         del new_frontier_to_basis_dict[new_basis_node]
 
-        for frontier_node, new_basis_options in new_frontier_to_basis_dict.items():
-            if not Apartness.states_are_incompatible(new_basis_node, frontier_node, self):
-                new_basis_options.append(new_basis_node)
+        for node, candidates in new_frontier_to_basis_dict.items():
+            if not Apartness.states_are_apart(new_basis_node, node, self):
+                candidates.append(new_basis_node)
+
         self.queue.append((new_basis, new_frontier_to_basis_dict))
 
     def promote_frontier_node_in_queue(self):
@@ -255,7 +238,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
+                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -284,7 +267,7 @@ class ObservationTreeSquare:
                 # Update basis candidates for remaining frontier nodes
                 for frontier_node, new_basis_list in new_frontier_to_basis_dict.items():
                     new_basis_list[:] = [b for b in new_basis if
-                                         not Apartness.states_are_incompatible(b, frontier_node, self)]
+                                         not Apartness.states_are_apart(b, frontier_node, self)]
                 # Reset the queue to only contain the new minimal basis
                 self.queue.clear()
                 self.queue.append((new_basis, new_frontier_to_basis_dict))
@@ -293,7 +276,8 @@ class ObservationTreeSquare:
                 self.guaranteed_basis = new_basis.copy()
                 self.bases_analyzed += 1
                 self.rule1_applications += 1
-                break
+                return True
+        return False
             # elif not set(basis_list).intersection(set(self.guaranteed_basis)):
             #     print("Warning: Isolated frontier node found but not promoted due to existing basis nodes outside guaranteed basis.")
 
@@ -309,7 +293,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
+                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -328,32 +312,47 @@ class ObservationTreeSquare:
                 self.rule1_applications += 1
                 break
 
-    def check_frontier_consistency(self):
+    def extend_frontier(self):
         """
-        Checks if all the states are correctly defined and creates new frontier nodes when possible 
+        Check if all successors of all basis nodes is fully defined in the frontier.
         """
+        extended = False
         for basis_node in self.basis:
-            for i in self.alphabet:
-                maybe_frontier = basis_node.get_successor(i)
+            for letter in self.alphabet:
+                successor = basis_node.get_successor(letter)
+                if successor is None or successor.output is None:
+                    extended = True
+                    # Query the SUL
+                    output = self.sul.query(self.get_access_sequence(basis_node) + [letter])
+                    if successor is None:
+                        successor = basis_node.extend_and_get(letter, output)
+                    else:
+                        successor.output = output
+                    candidates = [node for node in self.basis if not Apartness.states_are_apart(node, successor, self)]
+                    self.frontier_to_basis_dict[successor] = candidates
+        return extended
+        # for basis_node in self.basis:
+        #     for i in self.alphabet:
+        #         maybe_frontier = basis_node.get_successor(i)
 
-                if maybe_frontier is None:
-                    self.explore_frontier(basis_node, i)
-                    self.rule2_applications += 1
-                    maybe_frontier = basis_node.get_successor(i)
+        #         if maybe_frontier is None:
+        #             self.explore_frontier(basis_node, i)
+        #             self.rule2_applications += 1
+        #             maybe_frontier = basis_node.get_successor(i)
 
-                if (self.automaton_type == 'moore' or self.automaton_type == 'dfa') and maybe_frontier.output is None:
-                    inputs = self.get_transfer_sequence(self.root, maybe_frontier)
-                    outputs = self._get_output_sequence(inputs, query_mode="full")
-                    self.insert_observation_sequence(inputs, outputs)
-                    assert maybe_frontier.output is not None
+        #         if (self.automaton_type == 'moore' or self.automaton_type == 'dfa') and maybe_frontier.output is None:
+        #             inputs = self.get_transfer_sequence(self.root, maybe_frontier)
+        #             outputs = self._get_output_sequence(inputs, query_mode="full")
+        #             self.insert_observation_sequence(inputs, outputs)
+        #             assert maybe_frontier.output is not None
 
-                if maybe_frontier in self.basis or maybe_frontier in self.frontier_to_basis_dict:
-                    continue
+        #         if maybe_frontier in self.basis or maybe_frontier in self.frontier_to_basis_dict:
+        #             continue
 
-                self.frontier_to_basis_dict[maybe_frontier] = [
-                    new_basis_node for new_basis_node in self.basis
-                    if not Apartness.states_are_incompatible(new_basis_node, maybe_frontier, self)
-                ]
+        #         self.frontier_to_basis_dict[maybe_frontier] = [
+        #             new_basis_node for new_basis_node in self.basis
+        #             if not Apartness.states_are_apart(new_basis_node, maybe_frontier, self)
+        #         ]
 
     def is_observation_tree_adequate(self):
         """
@@ -361,7 +360,7 @@ class ObservationTreeSquare:
         or have multiple candidates but no more witnesses to narrow it down. 
         Also check if all basis nodes have some output for every input.
         """
-        self.check_frontier_consistency()
+        self.extend_frontier()
         for frontier_node, basis_list in self.frontier_to_basis_dict.items():
             if frontier_node.output is None:
                 return False
@@ -416,7 +415,7 @@ class ObservationTreeSquare:
     def find_basis_candidates(self, new_frontier):
         return {
             new_basis_node for new_basis_node in self.basis
-            if not Apartness.states_are_incompatible(new_basis_node, new_frontier, self)
+            if not Apartness.states_are_apart(new_basis_node, new_frontier, self)
         }
 
     def explore_frontier(self, basis_node, inp):
@@ -470,7 +469,7 @@ class ObservationTreeSquare:
         witnesses = Apartness._get_distinguishing_sequences(basis_candidates, self)
 
         for witness_seq in witnesses:
-            leads_to_node = self.get_successor(witness_seq, from_node=frontier_node)
+            leads_to_node = self.get_successor(witness_seq, start_node=frontier_node)
             if leads_to_node is None or leads_to_node.output is None:
                 yield witness_seq
 
@@ -744,105 +743,6 @@ class ObservationTreeSquare:
 
             return transition_mapping, output_mapping
 
-    def coloring(self):
-        start_smt_time = time.time()
-        s = Solver(name="z3")  # or another backend supported by pySMT
-
-        # Flatten the tree to a list of nodes
-        queue = deque([self.root])
-        nodes = [self.root]
-        while queue:
-            node = queue.popleft()
-            for succ in node.successors.values():
-                queue.append(succ)
-                nodes.append(succ)
-
-        # Variable declarations
-        color = [[Symbol(f"x_{v}_{i}", BOOL) for i in range(len(self.basis))] for v in range(len(nodes))]
-        parent = [[[Symbol(f"y_{a}_{i}_{j}", BOOL) for j in range(len(self.basis))] for i in range(len(self.basis))] for a in range(len(self.alphabet))]
-        accept = [Symbol(f"z_{i}", BOOL) for i in range(len(self.basis))]
-
-        # Each node has at least one color
-        for v in range(len(nodes)):
-            s.add_assertion(Or(color[v]))
-
-        # Accepting vertices cannot have the same color as rejecting vertices
-        for v in range(len(nodes)):
-            for w in range(len(nodes)):
-                if nodes[v].output is True and nodes[w].output is False:
-                    for i in range(len(self.basis)):
-                        s.add_assertion(And(Or(Not(color[v][i]), accept[i]), Or(Not(color[w][i]), Not(accept[i]))))
-
-        # A parent relation is set when a vertex and its parent are colored
-        for v in range(1, len(nodes)):
-            for i in range(len(self.basis)):
-                for j in range(len(self.basis)):
-                    label = nodes[v].input_to_parent
-                    lv = self.alphabet.index(label)
-                    p = nodes.index(nodes[v].parent)
-                    s.add_assertion(Or(parent[lv][i][j], Not(color[p][i]), Not(color[v][j])))
-
-        # Each parent relation can target at most one color
-        for a in range(len(self.alphabet)):
-            for i in range(len(self.basis)):
-                for j in range(len(self.basis)):
-                    for h in range(j):
-                        s.add_assertion(Or(Not(parent[a][i][h]), Not(parent[a][i][j])))
-
-        # Each basis node has a unique color
-        for i in range(len(self.basis)):
-            s.add_assertion(color[nodes.index(self.basis[i])][i])
-
-        # Each vertex has at most one color
-        for v in range(len(nodes)):
-            for i in range(len(self.basis)):
-                for j in range(i):
-                    s.add_assertion(Or(Not(color[v][i]), Not(color[v][j])))
-
-        # Each parent relation has at least one color
-        for a in range(len(self.alphabet)):
-            for i in range(len(self.basis)):
-                s.add_assertion(Or(parent[a][i]))
-
-        # A parent relation forces a vertex once the parent is colored
-        for v in range(1, len(nodes)):
-            for i in range(len(self.basis)):
-                for j in range(len(self.basis)):
-                    label = nodes[v].input_to_parent
-                    lv = self.alphabet.index(label)
-                    p = nodes.index(nodes[v].parent)
-                    s.add_assertion(Or(Not(parent[lv][i][j]), Not(color[p][i]), color[v][j]))
-
-        # All conflicts
-        for i in range(len(self.basis)):
-            for w in range(1,len(nodes)):
-                v = nodes.index(nodes[w].parent)
-                s.add_assertion(Or(Not(color[v][i]), Not(color[w][i])))
-
-        if not s.solve():
-            self.smt_time += time.time() - start_smt_time
-            return None, None
-        else:
-            self.smt_time += time.time() - start_smt_time
-            model = s.get_model()
-            transition_mapping = dict()
-            output_mapping = dict()
-            # Output mapping
-            for i in range(len(self.basis)):
-                val = model.get_value(accept[i])
-                output_mapping[self.basis[i]] = str(val) == "True"
-            # Transition mapping
-            # If a frontier node has the same color as a basis node, map it to that basis node
-            for v in range(len(nodes)):
-                node = nodes[v]
-                if node in self.frontier_to_basis_dict:
-                    for i in range(len(self.basis)):
-                        val = model.get_value(color[v][i])
-                        if str(val) == "True":
-                            transition_mapping[node] = self.basis[i]
-                            break
-            return transition_mapping, output_mapping
-
     def build_hypothesis(self):
         """
         Builds the hypothesis which will be sent to the SUL and checks consistency
@@ -877,11 +777,19 @@ class ObservationTreeSquare:
                 self.basis, self.frontier_to_basis_dict = self.queue.popleft()
                 self.bases_analyzed += 1
 
+    def update_frontier(self):
+        if self.extend_frontier():
+            self.update_frontier_to_basis_dict()
+
     def find_adequate_observation_tree(self):
         """
         Tries to find an observation tree, 
         for which each frontier state is identified as much as possible.
         """
+        self.update_frontier()
+        while self.promote_frontier_node_in_queue_reset():
+            self.update_frontier()
+
         self.update_frontier_and_basis()
         while not self.is_observation_tree_adequate():
             self.make_frontier_complete()
@@ -1041,7 +949,7 @@ class ObservationTreeSquare:
                 witness_seq
             ).output
 
-            witness_node = self.get_successor(witness_seq, from_node=hyp_node)
+            witness_node = self.get_successor(witness_seq, start_node=hyp_node)
             if witness_node is None or witness_node.output is None:
                 output_seq = self._get_output_sequence(
                     hyp_access + witness_seq,
@@ -1052,7 +960,7 @@ class ObservationTreeSquare:
                     output_seq
                 )
                 # print(hyp_access, witness_seq,  "inserted")
-                witness_node = self.get_successor(witness_seq, from_node=hyp_node)
+                witness_node = self.get_successor(witness_seq, start_node=hyp_node)
             else:
                 # print(hyp_access, witness_seq, "not new")
                 '''

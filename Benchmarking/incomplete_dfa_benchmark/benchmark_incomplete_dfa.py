@@ -153,7 +153,7 @@ def run_test_cases_09():
     output_file.write(
         "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
     Oliveira = testCasesPath + "/oliveira"
-    target_folder = "s08"
+    target_folder = "s04"
     folder_path = os.path.join(Oliveira, target_folder)
     for file_name in sorted(os.listdir(folder_path)):
         print(f"oliveira/{target_folder}/{file_name}")

@@ -1,7 +1,7 @@
 from .ADS import Ads
 from .Apartness import Apartness
 from ... import Dfa, DfaState, MealyState, MealyMachine, MooreMachine, MooreState
-from .Nodes import *
+from .Nodes import MooreNode, MealyNode
 
 aut_type = ['dfa', 'mealy', 'moore']
 
@@ -68,10 +68,6 @@ class MooreNode:
 
     def __lt__(self, other):
         return False
-
-
-
-
 
 class ObservationTree:
     def __init__(self, alphabet, sul, automaton_type, extension_rule, separation_rule):
