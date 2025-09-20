@@ -263,7 +263,6 @@ class Apartness:
     def _get_distinguishing_sequences_moore(group, alphabet):
         # Identifies if two states can be distinguished by any input-output pair in the provided alphabet
         groups = deque([([], group)])
-
         while groups:
             access_seq, group = groups.popleft()
             valid_group = [node for node in group if node is not None]
@@ -275,6 +274,7 @@ class Apartness:
                     outputs.remove(None)
                 if len(outputs)>=2:
                     yield access_seq
+                    return
 
                 for input_val in alphabet:
                     groups.append((access_seq + [input_val], [node.get_successor(input_val) for node in valid_group]))

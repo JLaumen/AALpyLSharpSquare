@@ -1,6 +1,7 @@
 import cProfile
 import os
 import pstats
+from multiprocessing import freeze_support
 
 from aalpy.SULs import IncompleteDfaSUL
 from aalpy.oracles import ValidityDataOracle
@@ -149,11 +150,11 @@ def run_test_cases():
 
 
 def run_test_cases_09():
-    output_file = open("Benchmarking/incomplete_dfa_benchmark/benchmark4.csv", "w")
+    output_file = open("Benchmarking/incomplete_dfa_benchmark/benchmark_s12.csv", "w")
     output_file.write(
         "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
     Oliveira = testCasesPath + "/oliveira"
-    target_folder = "s04"
+    target_folder = "s12"
     folder_path = os.path.join(Oliveira, target_folder)
     for file_name in sorted(os.listdir(folder_path)):
         print(f"oliveira/{target_folder}/{file_name}")
@@ -179,6 +180,9 @@ def run_test_cases_09():
                                     str(info['cache_saved']),
                                     str(info['queries_eq_oracle']),
                                     str(info['steps_eq_oracle'])]) + "\n")
+        print(info['total_time'])
+        print(info['queries_learning'])
+        print(info['automaton_size'])
     output_file.close()
 
 
@@ -212,7 +216,6 @@ def run_test_cases_specific(test_files):
                                     str(info['queries_eq_oracle']),
                                     str(info['steps_eq_oracle'])]) + "\n")
     output_file.close()
-
 
 # profiler = cProfile.Profile()
 # profiler.enable()
