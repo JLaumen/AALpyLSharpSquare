@@ -3,6 +3,9 @@ from copy import deepcopy
 from copy import copy
 from .Nodes import *
 
+pessimistic = False
+apart = True
+
 class Apartness:
     @staticmethod
     def incompatible_output(output1, output2):
@@ -93,14 +96,21 @@ class Apartness:
 
     @staticmethod
     def states_are_incompatible(first, second, ob_tree):
-        # Checking apartness is easier than checking incompatibility,
-        # so we check that first
-        if Apartness.states_are_apart(first, second, ob_tree):
-            return True
+        if apart:
+            return Apartness.states_are_apart(first, second, ob_tree)
 
         # Assumes that a node cannot be a descendant of a node with a higher id
         if second.id < first.id:
             first, second = second, first
+
+        if (first.id, second.id) in ob_tree.apartness_cache:
+            return True
+
+        # Checking apartness is easier than checking incompatibility,
+        # so we check that first
+        if Apartness.states_are_apart(first, second, ob_tree):
+            ob_tree.apartness_cache.add((first.id, second.id))
+            return True
 
         # Unfortunately, we need to clone the tree to avoid modifying it.
         # This is very slow (dominates the running time), so I am looking for a better solution.
@@ -118,6 +128,7 @@ class Apartness:
 
         if first_access is not None:
             # Incompatible!
+            ob_tree.apartness_cache.add((first.id, second.id))
 
             # print("Conflict when merging", first.id, second.id)
             # print(first_node.access_sequence, second_node.access_sequence)
@@ -150,8 +161,8 @@ class Apartness:
                 res2 = ob_tree.experiment(second_node.access_sequence + candidate)
                 # print("Experiment", res1, res2)
                 # print(Apartness.states_are_apart(first, second, ob_tree))
-            if Apartness.states_are_apart(first, second, ob_tree):
-                print("States are apart after experiments")
+            # if Apartness.states_are_apart(first, second, ob_tree):
+            #     print("States are apart after experiments")
             return True
 
         # Compatible!
@@ -261,6 +272,9 @@ class Apartness:
 
     @staticmethod
     def _get_distinguishing_sequences_moore(group, alphabet):
+        if pessimistic:
+            return
+        # length = 0
         # Identifies if two states can be distinguished by any input-output pair in the provided alphabet
         groups = deque([([], group)])
         while groups:
@@ -274,7 +288,10 @@ class Apartness:
                     outputs.remove(None)
                 if len(outputs)>=2:
                     yield access_seq
-                    return
+                    # if length == 0:
+                    #     length = len(access_seq)
+                    # elif len(access_seq)>length:
+                    #     return
 
                 for input_val in alphabet:
                     groups.append((access_seq + [input_val], [node.get_successor(input_val) for node in valid_group]))

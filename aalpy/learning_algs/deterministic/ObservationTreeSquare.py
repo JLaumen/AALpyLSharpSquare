@@ -1,13 +1,11 @@
 import time
 from collections import deque
-
 # from .ADS import Ads
 from .Apartness import Apartness
 from ... import Dfa, DfaState, MealyState, MealyMachine, MooreMachine, MooreState
-import z3
-from .Nodes import MooreNode, MealyNode
+from .Nodes import MooreNode
 from pysmt.shortcuts import (
-    Solver, Symbol, Function, Int, Bool, And, Or, Equals, GE, LT, Not, Iff, Portfolio
+    Solver, Symbol, Function, Int, Bool, Or, GE, LT, get_env
 )
 from pysmt.typing import INT, BOOL, FunctionType
 
@@ -46,6 +44,9 @@ class ObservationTreeSquare:
         self.guaranteed_basis = [self.root]
         self.queue = deque()
         self.frontier_to_basis_dict = dict()
+        self.max_basis_size = 1
+
+        self.apartness_cache = set()
 
     def insert_observation(self, inputs, output):
         """
@@ -202,7 +203,7 @@ class ObservationTreeSquare:
 
         candidates = self.frontier_to_basis_dict[frontier_node]
         new_candidates = {node for node in candidates if
-                          not Apartness.states_are_apart(frontier_node, node, self)}
+                          not Apartness.states_are_incompatible(frontier_node, node, self)}
         self.frontier_to_basis_dict[frontier_node] = new_candidates
 
     def update_frontier_to_basis_dict(self):
@@ -211,6 +212,9 @@ class ObservationTreeSquare:
         """
         for node in self.frontier_to_basis_dict:
             self.update_basis_candidates(node)
+        # for node, candidates in list(self.frontier_to_basis_dict.items()):
+        #     if len(candidates) == 1 and list(candidates)[0] in self.guaranteed_basis and list(candidates)[0].parent is not None and list(candidates)[0].parent not in self.basis:
+        #         print(f"Foreigner member {list(candidates)[0].id} can be added to normal basis")
 
     def add_frontier_to_queue(self, new_basis_node):
         """
@@ -234,7 +238,7 @@ class ObservationTreeSquare:
                 self.basis.append(new_basis)
                 del self.frontier_to_basis_dict[new_basis]
                 for frontier_node, new_basis_list in self.frontier_to_basis_dict.items():
-                    if not Apartness.states_are_apart(new_basis, frontier_node, self):
+                    if not Apartness.states_are_incompatible(new_basis, frontier_node, self):
                         new_basis_list.append(new_basis)
                 already_in_queue = False
                 for basis2, _ in self.queue:
@@ -253,6 +257,8 @@ class ObservationTreeSquare:
         """
         for iso_frontier_node, basis_list in self.frontier_to_basis_dict.items():
             if not basis_list & set(self.guaranteed_basis):
+                # if iso_frontier_node.parent not in self.guaranteed_basis:
+                #     print("Foreign member")
                 # if not basis_list:
                 # New basis: guaranteed basis + isolated node (preserving order)
                 self.guaranteed_basis.append(iso_frontier_node)
@@ -264,6 +270,7 @@ class ObservationTreeSquare:
                 self.queue = deque()
                 self.basis = self.guaranteed_basis
                 self.frontier_to_basis_dict = new_frontier_to_basis_dict
+                self.bases_analyzed += 1
                 return True
         return False
         # elif not set(basis_list).intersection(set(self.guaranteed_basis)):
@@ -313,7 +320,7 @@ class ObservationTreeSquare:
 
         #         self.frontier_to_basis_dict[maybe_frontier] = [
         #             new_basis_node for new_basis_node in self.basis
-        #             if not Apartness.states_are_apart(new_basis_node, maybe_frontier, self)
+        #             if not Apartness.states_are_incompatible(new_basis_node, maybe_frontier, self)
         #         ]
 
     def is_observation_tree_adequate(self):
@@ -362,7 +369,7 @@ class ObservationTreeSquare:
     def find_basis_candidates(self, new_frontier):
         return {
             new_basis_node for new_basis_node in self.basis
-            if not Apartness.states_are_apart(new_basis_node, new_frontier, self)
+            if not Apartness.states_are_incompatible(new_basis_node, new_frontier, self)
         }
 
     def explore_frontier(self, basis_node, inp):
@@ -491,6 +498,9 @@ class ObservationTreeSquare:
         Find a hypothesis consistent with the observation tree, using the pySMT solver.
         There are 2 free functions: "out" and "m" and 1 bound function "delta".
         """
+        if len(self.basis) < self.max_basis_size:
+            return None, None
+        self.max_basis_size = len(self.basis)
 
         start_smt_time = time.time()
 
@@ -658,6 +668,8 @@ class ObservationTreeSquare:
         input-output sequence which is different
         """
         if type(cex_outputs) not in [list, tuple]:
+            self.insert_observation(cex_inputs, cex_outputs)
+            return
             cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="final")
             self.insert_observation_sequence(cex_inputs, cex_outputs)
             hyp_outputs = hypothesis.compute_output_seq(
