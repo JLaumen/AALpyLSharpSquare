@@ -62,6 +62,7 @@ def parse_file(filename: str, alphabet: list, horizon=1000):
             if len(word) <= horizon:
                 known_words.append((word, output))
 
+    print(len(observedAlphabet))
     return known_words, observedAlphabet
 
 
@@ -272,8 +273,8 @@ def run_test_cases_pool(file):
     output_file.close()
 
 def main():
-    run_test_cases_pool("04_11")
-    # run_test_case_horizon_increase("SnL-3x3-20.txt", max_horizon=17)
+    # run_test_cases_pool("04_11")
+    run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=10)
 if __name__ == "__main__":
     main()
 # profiler.disable()
