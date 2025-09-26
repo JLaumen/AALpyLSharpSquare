@@ -134,3 +134,5 @@ dmypy.json
 
 # PyCharm
 .idea/
+
+Benchmarking/incomplete_dfa_benchmark/test_cases/AAL-benchmarks

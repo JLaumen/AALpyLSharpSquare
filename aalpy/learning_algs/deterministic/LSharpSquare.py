@@ -69,6 +69,10 @@ def run_LsharpSquare(alphabet: list, sul: SUL, eq_oracle: Oracle, automaton_type
         if max_learning_rounds and learning_rounds == max_learning_rounds:
             break
 
+        # Limit to one hour
+        if time.time() - start_time > 1000:
+            break
+
         # Building the hypothesis
         hypothesis = ob_tree.build_hypothesis()
 

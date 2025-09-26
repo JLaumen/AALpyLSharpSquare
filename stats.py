@@ -1,79 +1,155 @@
 import csv
 import os
 import statistics
+import matplotlib.pyplot as plt
 
-def analyze_and_average(csv_path, prefix):
-    fields = [
-        'learning_time',
-        'learning_rounds',
-        'queries_learning',
-        'validity_query',
-        'rule1',
-        'rule2',
-        'rule3',
-        'rule4',
-    ]
-    sums = {k: 0.0 for k in fields}
-    values = {k: [] for k in fields}
-    count = 0
-    with open(csv_path, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            if row['file name'].startswith(prefix) and row['automaton_size'] == "10":
-                sums['learning_time'] += float(row['learning_time'])
-                sums['learning_rounds'] += int(row['learning_rounds'])
-                sums['queries_learning'] += int(row['queries_learning'])
-                sums['validity_query'] += int(row['validity_query'])
-                sums['rule1'] += int(row['rule1'])
-                sums['rule2'] += int(row['rule2'])
-                sums['rule3'] += int(row['rule3'])
-                sums['rule4'] += int(row['rule4'])
-                values['learning_time'].append(float(row['learning_time']))
-                values['learning_rounds'].append(int(row['learning_rounds']))
-                values['queries_learning'].append(int(row['queries_learning']))
-                values['validity_query'].append(int(row['validity_query']))
-                values['rule1'].append(int(row['rule1']))
-                values['rule2'].append(int(row['rule2']))
-                values['rule3'].append(int(row['rule3']))
-                values['rule4'].append(int(row['rule4']))
-                count += 1
-    if count == 0:
-        return None
-    averages = {k: v / count for k, v in sums.items()}
-    medians = {k: statistics.median(values[k]) for k in fields}
-    return averages, medians, count
+def plot_queries_vs_size(csv_files, output=None):
+
+    # collect queries per size for each input CSV separately
+    file_dicts = []
+    for csv_file in csv_files:
+        sizes_to_queries = {}
+        if not os.path.exists(csv_file):
+            print(f"File not found: {csv_file}")
+            file_dicts.append(sizes_to_queries)
+            continue
+        with open(csv_file, newline='') as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                try:
+                    size = int(r['automaton_size'])
+                    q = int(r['queries_learning'])
+                except (KeyError, ValueError):
+                    continue
+                sizes_to_queries.setdefault(size, []).append(q)
+        file_dicts.append(sizes_to_queries)
+
+    if not any(d for d in file_dicts):
+        print("No data to plot")
+        return
+
+    # union of sizes across all files, sorted
+    sizes = sorted({s for d in file_dicts for s in d.keys()})
+
+    # make plot a bit wider and taller to accommodate larger violins
+    plt.figure(figsize=(max(12, len(sizes) * 0.9), 7))
+
+    # colors for each input CSV (will cycle if more than provided)
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+    n_files = len(file_dicts)
+
+    # horizontal offsets so violins for the same size don't overlap
+    default_spacing = 0.40  # default spacing between multiple-file violins at same size
+    # use a smaller spacing when exactly two files so the pair appears closer together
+    spacing = 0.22 if n_files == 2 else default_spacing
+    offsets = [ (i - (n_files - 1) / 2) * spacing for i in range(n_files) ]
+
+    # create violins per file, only where data exists
+    from matplotlib.patches import Patch
+    legend_handles = []
+    for i, fd in enumerate(file_dicts):
+        positions = []
+        data = []
+        for s in sizes:
+            vals = fd.get(s)
+            if not vals:
+                continue
+            positions.append(s + offsets[i])
+            data.append(vals)
+        if not data:
+            continue
+        # make violins slightly smaller so there's more space between DFA sizes
+        # when we reduced spacing for two files, make violins a bit wider relative to spacing
+        violin_width = spacing * 1.5
+        parts = plt.violinplot(data, positions=positions, widths=violin_width, showmeans=False, showmedians=True)
+        for pc in parts['bodies']:
+            pc.set_facecolor(colors[i % len(colors)])
+            pc.set_edgecolor('black')
+            pc.set_linewidth(0.7)
+            pc.set_alpha(0.8)
+        if 'cmedians' in parts and parts['cmedians'] is not None:
+            parts['cmedians'].set_color('black')
+            try:
+                parts['cmedians'].set_linewidth(2.0)
+            except Exception:
+                pass
+        # set explicit labels for first two files
+        if csv_files and i < len(csv_files):
+            if i == 0:
+                label = 'Pessimistic'
+            elif i == 1:
+                label = 'Optimistic'
+            else:
+                label = os.path.basename(csv_files[i])
+        else:
+            label = f'file_{i}'
+        legend_handles.append(Patch(facecolor=colors[i % len(colors)], edgecolor='black', label=label))
+
+    plt.xlabel('DFA Size')
+    plt.ylabel('Membership Queries')
+    plt.yscale('log')
+    plt.title('Queries vs Automaton Size (violin)')
+
+    # show horizontal and vertical grid lines (vertical lines on DFA sizes)
+    plt.grid(True, axis='y', linestyle='--', linewidth=0.5, alpha=0.6)
+    plt.grid(True, axis='x', linestyle='--', linewidth=0.5, alpha=0.4)
+
+    # ensure there is a tick for every DFA size
+    plt.xticks(sizes)
+
+    # optional: small margin so violins are fully visible
+    if sizes:
+        plt.xlim(min(sizes) - 0.6, max(sizes) + 0.6)
+
+    if legend_handles:
+        plt.legend(handles=legend_handles, loc='upper left')
+
+    if output:
+        plt.savefig(output, bbox_inches='tight')
+        print(f"Saved plot to {output}")
+    else:
+        plt.show()
+
+def analyze_and_average(csv_file):
+    with open(csv_file, newline='') as f:
+        reader = csv.DictReader(f)
+        data = list(reader)
+
+    grouped = {}
+    for row in data:
+        # if row.get('succeeded', 'true').lower() == 'true':
+        size = int(row['automaton_size'])
+        grouped.setdefault(size, []).append(row)
+
+    for size, rows in grouped.items():
+        # if size < 10:
+        #     continue
+        total_times = [float(r['total_time']) for r in rows]
+        analyzed_bases = [float(r['analyzed_bases']) for r in rows]
+        queries = [int(r['queries_learning']) for r in rows]
+        validity = [int(r['validity_query']) for r in rows]
+        print(f"Automaton size: {size}")
+        print(f"  Number of benchmarks: {len(rows)}")
+        print(f"  Mean total_time: {statistics.mean(total_times):.2f}")
+        print(f"  Median total_time: {statistics.median(total_times):.2f}")
+        print(f"  Mean analyzed_bases: {statistics.mean(analyzed_bases):.2f}")
+        print(f"  Median analyzed_bases: {statistics.median(analyzed_bases):.2f}")
+        print(f"  Mean queries_learning: {statistics.mean(queries):.2f}")
+        print(f"  Median queries_learning: {statistics.median(queries):.2f}")
+        print(f"  Mean validity_query: {statistics.mean(validity):.2f}")
+        print(f"  Median validity_query: {statistics.median(validity):.2f}")
 
 if __name__ == "__main__":
     folder = 'Benchmarking/incomplete_dfa_benchmark'
     prefix = 'oliveira/'
     csv_files = [
-        os.path.join(folder, 'benchmark.csv'),
-        os.path.join(folder, 'benchmark2.csv')
+        os.path.join(folder, 'benchmark_apart_pessimistic_1000_04_12.csv'),
+        os.path.join(folder, 'benchmark_apart_optimistic_1000_04_12.csv'),
     ]
     for csv_file in csv_files:
         if os.path.exists(csv_file):
-            result = analyze_and_average(csv_file, prefix)
-            if result:
-                averages, medians, count = result
-                print(f"\nAverages from {os.path.basename(csv_file)} ({count} files):")
-                print(f"learning_time: {averages['learning_time']:.3f}")
-                print(f"learning_rounds: {averages['learning_rounds']:.3f}")
-                print(f"queries_learning: {averages['queries_learning']:.3f}")
-                print(f"validity_query: {averages['validity_query']:.3f}")
-                print(f"rule1: {averages['rule1']:.3f}")
-                print(f"rule2: {averages['rule2']:.3f}")
-                print(f"rule3: {averages['rule3']:.3f}")
-                print(f"rule4: {averages['rule4']:.3f}")
-                print(f"Medians from {os.path.basename(csv_file)} ({count} files):")
-                print(f"learning_time: {medians['learning_time']:.3f}")
-                print(f"learning_rounds: {medians['learning_rounds']:.3f}")
-                print(f"queries_learning: {medians['queries_learning']:.3f}")
-                print(f"validity_query: {medians['validity_query']:.3f}")
-                print(f"rule1: {medians['rule1']:.3f}")
-                print(f"rule2: {medians['rule2']:.3f}")
-                print(f"rule3: {medians['rule3']:.3f}")
-                print(f"rule4: {medians['rule4']:.3f}")
-            else:
-                print(f"No matching rows in {csv_file}")
+            print(f"Analyzing file: {csv_file}")
+            analyze_and_average(csv_file)
         else:
             print(f"File not found: {csv_file}")
+    plot_queries_vs_size(csv_files, output="plot1.png")
