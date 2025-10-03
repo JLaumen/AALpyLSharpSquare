@@ -62,7 +62,6 @@ def parse_file(filename: str, alphabet: list, horizon=1000):
             if len(word) <= horizon:
                 known_words.append((word, output))
 
-    print(len(observedAlphabet))
     return known_words, observedAlphabet
 
 
@@ -152,10 +151,10 @@ def run_test_cases():
     output_file.close()
 
 def run_test_case_horizon_increase(file_name, max_horizon=10):
-    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_apart_pessimistic_{file_name.replace('/', '_')}.csv", "w")
+    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark3_{file_name.replace('/', '_')}.csv", "w")
     output_file.write(
-        "horizon,file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
-    for horizon in range(0, max_horizon + 1):
+        "horizon,file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
+    for horizon in range(10, max_horizon + 1):
         print(f"Testing {file_name} with horizon={horizon}")
         info = run_test_case(f"AAL-benchmarks/{file_name}", horizon=horizon)
         output_file.write(','.join([str(horizon),
@@ -169,15 +168,9 @@ def run_test_case_horizon_increase(file_name, max_horizon=10):
                                     str(info['total_time']),
                                     str(info['queries_learning']),
                                     str(info['validity_query']),
-                                    str(info['rule1']),
-                                    str(info['rule2']),
-                                    str(info['rule3']),
-                                    str(info['rule4']),
                                     str(info['nodes']),
                                     str(info['informative_nodes']),
-                                    str(info['analyzed_bases']),
                                     str(info['sul_steps']),
-                                    str(info['cache_saved']),
                                     str(info['queries_eq_oracle']),
                                     str(info['steps_eq_oracle'])]) + "\n")
         print("Time:", info['total_time'])
@@ -186,43 +179,6 @@ def run_test_case_horizon_increase(file_name, max_horizon=10):
         print("Size:", info['automaton_size'])
         if not info['successful']:
             break
-    output_file.close()
-
-def run_test_cases_09(file):
-    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_{file}.csv", "w")
-    output_file.write(
-        "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
-    Oliveira = testCasesPath + "oliveira/"
-    target_folder = file
-    folder_path = os.path.join(Oliveira, target_folder)
-    for file_name in sorted(os.listdir(folder_path)):
-        print(f"oliveira/{target_folder}/{file_name}")
-        info = run_test_case(f"oliveira/{target_folder}/{file_name}")
-        output_file.write(','.join([f"oliveira/{target_folder}/{file_name}",
-                                    str(info['successful']),
-                                    str(info['learning_rounds']),
-                                    str(info['automaton_size']),
-                                    str(info['learning_time']),
-                                    str(info['smt_time']),
-                                    str(info['eq_oracle_time']),
-                                    str(info['total_time']),
-                                    str(info['queries_learning']),
-                                    str(info['validity_query']),
-                                    str(info['rule1']),
-                                    str(info['rule2']),
-                                    str(info['rule3']),
-                                    str(info['rule4']),
-                                    str(info['nodes']),
-                                    str(info['informative_nodes']),
-                                    str(info['analyzed_bases']),
-                                    str(info['sul_steps']),
-                                    str(info['cache_saved']),
-                                    str(info['queries_eq_oracle']),
-                                    str(info['steps_eq_oracle'])]) + "\n")
-        print("Time:", info['total_time'])
-        print("Queries:", info['queries_learning'])
-        print("Validity:", info['validity_query'])
-        print("Size:", info['automaton_size'])
     output_file.close()
 
 def process_file(file_name, target_folder):
@@ -238,15 +194,15 @@ def process_file(file_name, target_folder):
                     str(info['total_time']),
                     str(info['queries_learning']),
                     str(info['validity_query']),
-                    str(info['rule1']),
-                    str(info['rule2']),
-                    str(info['rule3']),
-                    str(info['rule4']),
+                    # str(info['rule1']),
+                    # str(info['rule2']),
+                    # str(info['rule3']),
+                    # str(info['rule4']),
                     str(info['nodes']),
                     str(info['informative_nodes']),
                     str(info['analyzed_bases']),
                     str(info['sul_steps']),
-                    str(info['cache_saved']),
+                    # str(info['cache_saved']),
                     str(info['queries_eq_oracle']),
                     str(info['steps_eq_oracle'])]) + "\n"
     print("Time:", info['total_time'])
@@ -256,9 +212,9 @@ def process_file(file_name, target_folder):
     return row
 
 def run_test_cases_pool(file):
-    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_apart_optimistic_1000_{file}.csv", "w")
+    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_{file}.csv", "w")
     output_file.write(
-        "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
+        "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
     Oliveira = testCasesPath + "oliveira/"
     target_folder = file
     folder_path = os.path.join(Oliveira, target_folder)
@@ -273,8 +229,8 @@ def run_test_cases_pool(file):
     output_file.close()
 
 def main():
-    # run_test_cases_pool("04_11")
-    run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=10)
+    # run_test_cases_pool("04_12")
+    run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=17)
 if __name__ == "__main__":
     main()
 # profiler.disable()

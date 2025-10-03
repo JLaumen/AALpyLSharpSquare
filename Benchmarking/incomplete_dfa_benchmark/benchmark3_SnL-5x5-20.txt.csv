@@ -1,0 +1,4 @@
+horizon,file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle
+1,AAL-benchmarks/SnL-5x5-20.txt,True,1,1,0.0012209415435791016,0.027228832244873047,8.106231689453125e-06,0.0284578800201416,4,1,4,2,3,2,2
+2,AAL-benchmarks/SnL-5x5-20.txt,True,1,1,0.0013515949249267578,0.008553266525268555,7.3909759521484375e-06,0.009912252426147461,4,1,4,2,3,5,8
+3,AAL-benchmarks/SnL-5x5-20.txt,True,1,1,0.0027246475219726562,0.009358882904052734,1.5735626220703125e-05,0.012099266052246094,4,1,4,2,3,10,23

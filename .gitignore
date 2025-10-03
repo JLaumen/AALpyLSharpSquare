@@ -136,3 +136,4 @@ dmypy.json
 .idea/
 
 Benchmarking/incomplete_dfa_benchmark/test_cases/AAL-benchmarks
+Benchmarking/incomplete_dfa_benchmark/test_cases/tests/AAL-benchmarks

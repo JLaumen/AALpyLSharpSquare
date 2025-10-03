@@ -125,15 +125,15 @@ def analyze_and_average(csv_file):
         # if size < 10:
         #     continue
         total_times = [float(r['total_time']) for r in rows]
-        analyzed_bases = [float(r['analyzed_bases']) for r in rows]
+        # analyzed_bases = [float(r['analyzed_bases']) for r in rows]
         queries = [int(r['queries_learning']) for r in rows]
         validity = [int(r['validity_query']) for r in rows]
         print(f"Automaton size: {size}")
         print(f"  Number of benchmarks: {len(rows)}")
         print(f"  Mean total_time: {statistics.mean(total_times):.2f}")
         print(f"  Median total_time: {statistics.median(total_times):.2f}")
-        print(f"  Mean analyzed_bases: {statistics.mean(analyzed_bases):.2f}")
-        print(f"  Median analyzed_bases: {statistics.median(analyzed_bases):.2f}")
+        # print(f"  Mean analyzed_bases: {statistics.mean(analyzed_bases):.2f}")
+        # print(f"  Median analyzed_bases: {statistics.median(analyzed_bases):.2f}")
         print(f"  Mean queries_learning: {statistics.mean(queries):.2f}")
         print(f"  Median queries_learning: {statistics.median(queries):.2f}")
         print(f"  Mean validity_query: {statistics.mean(validity):.2f}")
@@ -143,8 +143,8 @@ if __name__ == "__main__":
     folder = 'Benchmarking/incomplete_dfa_benchmark'
     prefix = 'oliveira/'
     csv_files = [
-        os.path.join(folder, 'benchmark_apart_pessimistic_1000_04_12.csv'),
-        os.path.join(folder, 'benchmark_apart_optimistic_1000_04_12.csv'),
+        os.path.join(folder, 'benchmark_04_12.csv'),
+        # os.path.join(folder, 'benchmark2_04_11.csv'),
     ]
     for csv_file in csv_files:
         if os.path.exists(csv_file):

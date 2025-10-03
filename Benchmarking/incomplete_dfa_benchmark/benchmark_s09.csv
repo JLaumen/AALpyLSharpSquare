@@ -1,3 +1,0 @@
-file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle
-oliveira/s09/randm09.02.02.01.020_0030.01.aba.beta,True,21,9,0.11545729637145996,2.503213882446289,0.004105091094970703,2.6227762699127197,88,21,0,0,0,208,151,53,188,622,0,3142,49522
-oliveira/s09/randm09.02.02.01.020_0030.02.aba.beta,True,10,7,0.016428709030151367,0.35039806365966797,0.0008635520935058594,0.3676903247833252,45,10,0,0,0,63,72,36,54,260,0,742,10994
