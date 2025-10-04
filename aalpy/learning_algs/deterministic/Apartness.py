@@ -242,7 +242,7 @@ class Apartness:
         print(Apartness.merge(q, p))
     
     @staticmethod
-    def _get_distinguishing_sequences(group, ob_tree):
+    def get_distinguishing_sequences(group, ob_tree):
         if ob_tree.automaton_type=="mealy":
             return Apartness._get_distinguishing_sequences_mealy(group, ob_tree.alphabet)
         else:

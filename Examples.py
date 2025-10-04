@@ -75,7 +75,7 @@ def angluin_seminal_example_lsharp_incomplete():
     """
     from aalpy.SULs.DfaSUL import DfaSUL, IncompleteDfaSUL
     from aalpy.oracles import RandomWordEqOracle
-    from aalpy.learning_algs import run_Lstar, run_LsharpSquare
+    from aalpy.learning_algs import run_Lstar, run_lsharp_square
     from aalpy.utils import get_Angluin_dfa
     #import z3
 
@@ -87,8 +87,8 @@ def angluin_seminal_example_lsharp_incomplete():
     sul = IncompleteDfaSUL([], dfa, fractionKnown=0.5)
     eq_oracle = RandomWordEqOracle(alphabet, sul, 500)
 
-    learned_dfa = run_LsharpSquare(alphabet, sul, eq_oracle, automaton_type='dfa',
-                                   max_learning_rounds=50, print_level=3)
+    learned_dfa = run_lsharp_square(alphabet, sul, eq_oracle, automaton_type='dfa',
+                                    max_learning_rounds=50, print_level=3)
 
     assert learned_dfa == dfa
     return learned_dfa  

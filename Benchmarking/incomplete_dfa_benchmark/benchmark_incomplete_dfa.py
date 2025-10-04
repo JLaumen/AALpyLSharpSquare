@@ -1,188 +1,114 @@
-import cProfile
-import os
-import pstats
-from multiprocessing import freeze_support
 import concurrent.futures
+import datetime
+import logging
+import os
+from typing import Any
 
 from aalpy.SULs import IncompleteDfaSUL
+from aalpy.learning_algs import run_lsharp_square
 from aalpy.oracles import ValidityDataOracle
-from aalpy.learning_algs import run_LsharpSquare
-from aalpy.utils.HelperFunctions import print_learning_info
 
-'''
-in the aalpy folder
-run using:
-PYTHONPATH=. python3 Benchmarking/incomplete_dfa_benchmark/benchmark_incomplete_dfa.py
-'''
+# From the Aalpy folder, run using:
+# PYTHONPATH=. python3 Benchmarking/incomplete_dfa_benchmark/benchmark_incomplete_dfa.py
 
-testCasesPath = "Benchmarking/incomplete_dfa_benchmark/test_cases/"
+test_cases_path = "Benchmarking/incomplete_dfa_benchmark/test_cases/"
+logging.basicConfig(level=logging.INFO, format=f"{datetime.datetime.now().strftime("%H:%M:%S")} %(levelname)s: %(message)s")
 
 
-def is_simple_input(input):
-    for i in input:
-        if i not in ["0", "1", "X"]:
-            return False
-    return True
+def is_simple_input(inp: str) -> bool:
+    return all(c in ["0", "1", "X"] for c in inp)
 
 
-def get_possible_words(prefix: list, suffix: list, alphabet: list) -> list:
+def get_possible_words(prefix: str, suffix: str, alphabet: list) -> list:
     words = []
     if suffix:
         if suffix[0] == "X":
-            for input_val in alphabet:
-                words.extend(get_possible_words(prefix + [input_val], suffix[1:], alphabet))
+            for letter in alphabet:
+                words.extend(get_possible_words(prefix + letter, suffix[1:], alphabet))
         else:
-            input_val = suffix[0]
-            words.extend(get_possible_words(prefix + [input_val], suffix[1:], alphabet))
+            letter = suffix[0]
+            words.extend(get_possible_words(prefix + letter, suffix[1:], alphabet))
         return words
     else:
         return [prefix]
 
 
-def parse_file(filename: str, alphabet: list, horizon=1000):
-    f = open(testCasesPath + filename)
-    known_words = []
-    observedAlphabet = []
-    for l in f:
-        splitIndex = l.strip().rfind(',')
-        input, output = l.strip()[:splitIndex], l.strip()[splitIndex + 1:]
-        output = {"+": True, "-": False}[output.strip()]
-        if is_simple_input(input):
-            inputs = get_possible_words([], input, alphabet)
-            for word in inputs:
-                for let in word:
-                    if not let in observedAlphabet:
-                        observedAlphabet.append(let)
-                known_words.append((word, output))
-        else:
-            word = input.split(";")
-            for let in word:
-                if not let in observedAlphabet:
-                    observedAlphabet.append(let)
-            if len(word) <= horizon:
-                known_words.append((word, output))
+def parse_file(filename: str, alphabet: list, horizon: int | None = None) -> tuple[list, list]:
+    with open(test_cases_path + filename, 'r') as f:
+        known_words = []
+        observed_alphabet = []
+        for l in f:
+            split_index = l.strip().rfind(',')
+            inp = l.strip()[:split_index]
+            out = l.strip()[split_index + 1:]
+            out = out.strip() == "+"
+            if is_simple_input(inp):
+                inputs = get_possible_words("", inp, alphabet)
+                for word in inputs:
+                    for letter in word:
+                        if not letter in observed_alphabet:
+                            observed_alphabet.append(letter)
+                    known_words.append((word, out))
+            else:
+                word = inp.split(";")
+                for letter in word:
+                    if not letter in observed_alphabet:
+                        observed_alphabet.append(letter)
+                if horizon is None or len(word) <= horizon:
+                    known_words.append((word, out))
 
-    return known_words, observedAlphabet
+        return known_words, observed_alphabet
 
 
-def run_test_case(filename: str, print_level=0, horizon=1000):
-    alphabet = [False, True]
+def run_test_case(filename: str, horizon: int | None = None) -> dict[str, Any]:
+    alphabet = [True, False]
     data, alphabet = parse_file(filename, alphabet, horizon)
-    '''print("alphabet:")
-    for i in alphabet:
-        print(i)'''
-    sul = IncompleteDfaSUL(data.copy(), fractionKnown=0)  # , "random", fractionKnown=0.5)
+    sul = IncompleteDfaSUL(data.copy())
     eq_oracle = ValidityDataOracle(data.copy())
 
-    learned_dfa, info = run_LsharpSquare(alphabet, sul, eq_oracle, automaton_type='dfa',
-                                         print_level=print_level - 1, return_data=True)
+    learned_dfa, info = run_lsharp_square(alphabet, sul, eq_oracle, return_data=True)
 
-    if print_level > 0:
-        print(learned_dfa)
-    successful = eq_oracle.find_cex(learned_dfa) == None
+    successful = eq_oracle.find_cex(learned_dfa) is None
     info["successful"] = successful
     return info
 
 
-def run_test_cases():
-    output_file = open("Benchmarking/incomplete_dfa_benchmark/output.csv", "w")
-    output_file.write(
-        "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,rule1,rule2,rule3,rule4,nodes,informative_nodes,analyzed_bases,sul_steps,cache_saved,queries_eq_oracle,steps_eq_oracle\n")
-    # lee alpharegex
-    LeeAlpharegex = testCasesPath + "/lee_alpharegex"
-    for num in range(1, 26):
-        if num in [9]:
-            continue
-        print("lee_alpharegex/" + str(num))
-        info = run_test_case("lee_alpharegex/" + str(num))
-        output_file.write(','.join(["lee_alpharegex/" + str(num),
-                                    str(info['successful']),
-                                    str(info['learning_rounds']),
-                                    str(info['automaton_size']),
-                                    str(info['learning_time']),
-                                    str(info['smt_time']),
-                                    str(info['eq_oracle_time']),
-                                    str(info['total_time']),
-                                    str(info['queries_learning']),
-                                    str(info['validity_query']),
-                                    str(info['rule1']),
-                                    str(info['rule2']),
-                                    str(info['rule3']),
-                                    str(info['rule4']),
-                                    str(info['nodes']),
-                                    str(info['informative_nodes']),
-                                    str(info['analyzed_bases']),
-                                    str(info['sul_steps']),
-                                    str(info['cache_saved']),
-                                    str(info['queries_eq_oracle']),
-                                    str(info['steps_eq_oracle'])]) + "\n")
-    Oliveira = testCasesPath + "/oliveira"
-    for folder_name in sorted(os.listdir(Oliveira)):
-        if folder_name in [".DS_Store", 's12', 's13']:
-            continue
-        for file_name in sorted(os.listdir(Oliveira + "/" + folder_name)):
-            if "oliveira/" + folder_name + "/" + file_name in [
+def run_test_case_horizon_increase(file_name: str, max_horizon: int | None = None) -> None:
+    with open(f"Benchmarking/incomplete_dfa_benchmark/benchmark3_{file_name.replace('/', '_')}.csv", "w") as f:
+        f.write("horizon,file_name,succeeded,learning_rounds,automaton_size,learning_time,"
+                "smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,"
+                "informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
 
-            ]:
-                continue
-            print("oliveira/" + folder_name + "/" + file_name)
-            info = run_test_case("oliveira/" + folder_name + "/" + file_name)
-            output_file.write(','.join(["oliveira/" + folder_name + "/" + file_name,
-                                        str(info['successful']),
-                                        str(info['learning_rounds']),
-                                        str(info['automaton_size']),
-                                        str(info['learning_time']),
-                                        str(info['smt_time']),
-                                        str(info['eq_oracle_time']),
-                                        str(info['total_time']),
-                                        str(info['queries_learning']),
-                                        str(info['validity_query']),
-                                        str(info['rule1']),
-                                        str(info['rule2']),
-                                        str(info['rule3']),
-                                        str(info['rule4']),
-                                        str(info['nodes']),
-                                        str(info['informative_nodes']),
-                                        str(info['analyzed_bases']),
-                                        str(info['sul_steps']),
-                                        str(info['cache_saved']),
-                                        str(info['queries_eq_oracle']),
-                                        str(info['steps_eq_oracle'])]) + "\n")
-    output_file.close()
+        for horizon in range(1, max_horizon + 1):
+            logging.info(f"Testing {file_name} with horizon={horizon}")
+            info = run_test_case(f"AAL-benchmarks/{file_name}", horizon=horizon)
+            f.write(','.join([str(horizon),
+                              file_name,
+                              str(info['successful']),
+                              str(info['learning_rounds']),
+                              str(info['automaton_size']),
+                              str(info['learning_time']),
+                              str(info['smt_time']),
+                              str(info['eq_oracle_time']),
+                              str(info['total_time']),
+                              str(info['queries_learning']),
+                              str(info['validity_query']),
+                              str(info['nodes']),
+                              str(info['informative_nodes']),
+                              str(info['sul_steps']),
+                              str(info['queries_eq_oracle']),
+                              str(info['steps_eq_oracle'])]) + "\n")
+            logging.info(f"Finished testing {file_name}")
+            logging.info(f"Time: {info['total_time']}")
+            logging.info(f"Queries: {info['queries_learning']}")
+            logging.info(f"Validity: {info['validity_query']}")
+            logging.info(f"Size: {info['automaton_size']}")
+            if not info['successful']:
+                break
 
-def run_test_case_horizon_increase(file_name, max_horizon=10):
-    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark3_{file_name.replace('/', '_')}.csv", "w")
-    output_file.write(
-        "horizon,file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
-    for horizon in range(10, max_horizon + 1):
-        print(f"Testing {file_name} with horizon={horizon}")
-        info = run_test_case(f"AAL-benchmarks/{file_name}", horizon=horizon)
-        output_file.write(','.join([str(horizon),
-                                    f"AAL-benchmarks/{file_name}",
-                                    str(info['successful']),
-                                    str(info['learning_rounds']),
-                                    str(info['automaton_size']),
-                                    str(info['learning_time']),
-                                    str(info['smt_time']),
-                                    str(info['eq_oracle_time']),
-                                    str(info['total_time']),
-                                    str(info['queries_learning']),
-                                    str(info['validity_query']),
-                                    str(info['nodes']),
-                                    str(info['informative_nodes']),
-                                    str(info['sul_steps']),
-                                    str(info['queries_eq_oracle']),
-                                    str(info['steps_eq_oracle'])]) + "\n")
-        print("Time:", info['total_time'])
-        print("Queries:", info['queries_learning'])
-        print("Validity:", info['validity_query'])
-        print("Size:", info['automaton_size'])
-        if not info['successful']:
-            break
-    output_file.close()
 
-def process_file(file_name, target_folder):
-    print(f"oliveira/{target_folder}/{file_name}")
+def process_file(file_name: str, target_folder: str) -> str:
+    logging.info(f"Testing {file_name}")
     info = run_test_case(f"oliveira/{target_folder}/{file_name}")
     row = ','.join([f"oliveira/{target_folder}/{file_name}",
                     str(info['successful']),
@@ -194,56 +120,39 @@ def process_file(file_name, target_folder):
                     str(info['total_time']),
                     str(info['queries_learning']),
                     str(info['validity_query']),
-                    # str(info['rule1']),
-                    # str(info['rule2']),
-                    # str(info['rule3']),
-                    # str(info['rule4']),
                     str(info['nodes']),
                     str(info['informative_nodes']),
-                    str(info['analyzed_bases']),
                     str(info['sul_steps']),
-                    # str(info['cache_saved']),
                     str(info['queries_eq_oracle']),
                     str(info['steps_eq_oracle'])]) + "\n"
-    print("Time:", info['total_time'])
-    print("Queries:", info['queries_learning'])
-    print("Validity:", info['validity_query'])
-    print("Size:", info['automaton_size'])
+    logging.info(f"Finished testing {file_name}")
+    logging.info(f"Time: {info['total_time']}")
+    logging.info(f"Queries: {info['queries_learning']}")
+    logging.info(f"Validity: {info['validity_query']}")
+    logging.info(f"Size: {info['automaton_size']}")
     return row
 
-def run_test_cases_pool(file):
-    output_file = open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_{file}.csv", "w")
-    output_file.write(
-        "file name,succeeded,learning_rounds,automaton_size,learning_time,smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
-    Oliveira = testCasesPath + "oliveira/"
-    target_folder = file
-    folder_path = os.path.join(Oliveira, target_folder)
-    file_names = sorted(os.listdir(folder_path))
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = list(executor.map(process_file, file_names, [target_folder] * len(file_names)))
-        for row in results:
-            output_file.write(row)
-            output_file.flush()
-            os.fsync(output_file.fileno())
-    output_file.close()
+def run_test_cases_pool(file: str) -> None:
+    with open(f"Benchmarking/incomplete_dfa_benchmark/benchmark_{file}.csv", "w") as f:
+        f.write("file name,succeeded,learning_rounds,automaton_size,learning_time,"
+                "smt_time,eq_oracle_time,total_time,queries_learning,validity_query,nodes,"
+                "informative_nodes,sul_steps,queries_eq_oracle,steps_eq_oracle\n")
+        oliveira = test_cases_path + "oliveira/"
+        target_folder = file
+        folder_path = os.path.join(oliveira, target_folder)
+        file_names = sorted(os.listdir(folder_path))
 
-def main():
-    # run_test_cases_pool("04_12")
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = list(executor.map(process_file, file_names, [target_folder] * len(file_names)))
+            for row in results:
+                f.write(row)
+
+
+def main() -> None:
+    # run_test_cases_pool("04_09")
     run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=17)
+
+
 if __name__ == "__main__":
     main()
-# profiler.disable()
-# stats = pstats.Stats(profiler).sort_stats('cumtime')
-# stats.print_stats(40)  # Show top 20 functions by cumulative time
-# run_test_cases_specific(["oliveira/04_11/randm11.02.02.19.020_0030.05.aba.beta",
-#                        "oliveira/s11/randm11.02.02.19.020_0030.05.aba.beta",
-#                        "oliveira/04_11/randm11.02.02.19.020_0030.02.aba.beta"])
-# run_test_cases_specific(["lee_alpharegex/1"])
-# run_test_case("oliveira/04_11/randm11.02.02.19.020_0030.05.aba.beta", print_level=4)
-# run_test_case("oliveira/04_09/randm09.02.02.01.020_0030.03.aba.beta", print_level=4)
-# info = run_test_case("oliveira/04_07/randm05.02.02.13.020_0030.02.aba.beta", print_level=4)
-# info = run_test_case("learning-benchmarks/SnL16.txt", print_level=4)
-# print(info['successful'])
-# run_test_case("lee_alpharegex/1", print_level=4)
-# run_test_case("oliveira/04_07/randm07.02.02.18.020_0030.01.aba.beta", print_level=4)
