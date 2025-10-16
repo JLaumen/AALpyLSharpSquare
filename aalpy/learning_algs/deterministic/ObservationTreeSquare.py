@@ -14,11 +14,13 @@ from .Apartness import Apartness
 from .Nodes import MooreNode
 from ... import Dfa, DfaState
 
-timeout = 60000
+# timeout = 60000
+timeout = 3600 * 1000
 
 test_cases_path = "Benchmarking/incomplete_dfa_benchmark/test_cases/"
 logging.basicConfig(level=logging.DEBUG,
-                    format=f"{datetime.datetime.now().strftime("%H:%M:%S")} %(levelname)s: %(message)s")
+                    format=f"%(asctime)s %(levelname)s: %(message)s",
+                    datefmt="%H:%M:%S")
 
 
 class ObservationTreeSquare:
@@ -39,7 +41,7 @@ class ObservationTreeSquare:
         self.states_list = []
 
         self.root = MooreNode()
-        self.root.output = self.sul.query([])
+        self.root.set_output(self.sul.query([]))
 
         self.size = 1
         self.guaranteed_basis = [self.root]
@@ -54,7 +56,7 @@ class ObservationTreeSquare:
         node = self.root
         for inp in inputs:
             node = node.extend_and_get(inp, None)
-        node.output = output
+        node.set_output(output)
 
     def insert_observation_sequence(self, inputs, outputs):
         """
@@ -63,7 +65,7 @@ class ObservationTreeSquare:
         node = self.root
         for inp, output in zip(inputs, outputs):
             node = node.extend_and_get(inp, output)
-            node.output = output
+            node.set_output(output)
             if not node in self.frontier_to_basis_dict:
                 candidates = {candidate for candidate in self.guaranteed_basis if
                               not Apartness.states_are_incompatible(candidate, node, self)}
@@ -169,8 +171,15 @@ class ObservationTreeSquare:
         """
         Update the basis candidates for all frontier nodes.
         """
-        for node in self.frontier_to_basis_dict:
+        self.update_frontier_to_basis_dict_dfs(self.root)
+
+    def update_frontier_to_basis_dict_dfs(self, node):
+        if not node.leads_to_known:
+            return
+        if not node in self.guaranteed_basis:
             self.update_basis_candidates(node)
+        for successor in node.successors.values():
+            self.update_frontier_to_basis_dict_dfs(successor)
 
     def promote_node_to_basis(self):
         """
@@ -285,14 +294,7 @@ class ObservationTreeSquare:
             idx = nodes.index(node)
             for letter, successor in node.successors.items():
                 # Check if successor can reach a known node
-                queue2 = deque([successor])
-                while queue2:
-                    node2 = queue2.popleft()
-                    if self.is_known(node2) or node2 in self.guaranteed_basis:
-                        break
-                    for successor2 in node2.successors.values():
-                        queue2.append(successor2)
-                else:
+                if not successor.leads_to_known:
                     continue
                 queue.append(successor)
                 s.add_assertion(
@@ -362,7 +364,7 @@ class ObservationTreeSquare:
         except SolverReturnedUnknownResultError:
             self.smt_time += time.time() - start_smt_time
             logging.debug("TIMEOUT")
-            logging.debug("Could not find hypothesis of size", self.size)
+            logging.debug(f"Could not find hypothesis of size {self.size}")
             return None, None
 
     def build_hypothesis(self):
@@ -384,8 +386,8 @@ class ObservationTreeSquare:
         """
         Extend the frontier self.size - len(self.guaranteed_basis) steps from the guaranteed basis
         """
-        # length = self.size - len(self.guaranteed_basis) + 1
-        length = 1
+        length = self.size - len(self.guaranteed_basis) + 1
+        # length = 1
         # Loop over words of length 'length'
         for word in itertools.product(self.alphabet, repeat=length):
             for node in self.guaranteed_basis:

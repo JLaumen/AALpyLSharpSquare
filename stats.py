@@ -143,7 +143,7 @@ if __name__ == "__main__":
     folder = 'Benchmarking/incomplete_dfa_benchmark'
     prefix = 'oliveira/'
     csv_files = [
-        os.path.join(folder, 'benchmark_04_12.csv'),
+        os.path.join(folder, 'benchmark_all_17.csv'),
         # os.path.join(folder, 'benchmark2_04_11.csv'),
     ]
     for csv_file in csv_files:

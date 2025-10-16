@@ -1,6 +1,6 @@
 class MooreNode:
     _id_counter = 0
-    __slots__ = ['id', 'output', 'successors', 'parent', 'input_to_parent', 'access_sequence']
+    __slots__ = ['id', 'output', 'successors', 'parent', 'input_to_parent', 'access_sequence', 'leads_to_known']
 
     def __init__(self, parent=None):
         MooreNode._id_counter += 1
@@ -10,16 +10,26 @@ class MooreNode:
         self.parent = parent
         self.input_to_parent = None
         self.access_sequence = None
+        self.leads_to_known = False
 
     def __hash__(self):
         return hash(self.id)
 
+    def set_output(self, output):
+        self.output = output
+        if output is True or output is False:
+            self.leads_to_known = True
+            node = self
+            while node.parent is not None and not node.parent.leads_to_known:
+                node = node.parent
+                node.leads_to_known = True
+
     def add_successor(self, input_val, output_val, successor_node):
         """ Adds a successor node to the current node based on input """
         self.successors[input_val] = successor_node
-        self.successors[input_val].output = output_val
         self.successors[input_val].parent = self
         self.successors[input_val].input_to_parent = input_val
+        self.successors[input_val].set_output(output_val)
 
     def get_successor(self, input_val):
         """ Returns the successor node for the given input """

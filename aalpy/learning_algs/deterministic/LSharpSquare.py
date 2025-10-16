@@ -28,7 +28,7 @@ def run_lsharp_square(alphabet: list,
         learning_rounds += 1
 
         # Limit to one hour
-        if time.time() - start_time > 3600:
+        if time.time() - start_time > 3600 * 3:
             break
 
         # Building the hypothesis

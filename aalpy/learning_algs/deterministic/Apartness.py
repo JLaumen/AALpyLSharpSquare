@@ -96,6 +96,8 @@ class Apartness:
 
     @staticmethod
     def states_are_incompatible(first, second, ob_tree):
+        if not first.leads_to_known or not second.leads_to_known:
+            return False
         if apart:
             return Apartness.states_are_apart(first, second, ob_tree)
 
@@ -279,7 +281,7 @@ class Apartness:
         groups = deque([([], group)])
         while groups:
             access_seq, group = groups.popleft()
-            valid_group = [node for node in group if node is not None]
+            valid_group = [node for node in group if node is not None and node.leads_to_known]
             if len(valid_group)>=2:
                 outputs = set([node.output for node in valid_group])
                 if "unknown" in outputs:

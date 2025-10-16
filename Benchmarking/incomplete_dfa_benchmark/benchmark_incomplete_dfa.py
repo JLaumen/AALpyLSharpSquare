@@ -7,12 +7,43 @@ from typing import Any
 from aalpy.SULs import IncompleteDfaSUL
 from aalpy.learning_algs import run_lsharp_square
 from aalpy.oracles import ValidityDataOracle
+from aalpy.utils import generate_random_dfa
+
+import random
+
+class DFA:
+    def __init__(self, num_states, alphabet):
+        self.num_states = num_states
+        self.alphabet = alphabet
+        self.transitions = [{a: random.randint(0, num_states - 1) for a in alphabet} for _ in range(num_states)]
+        self.accepting = set(random.sample(range(num_states), random.randint(1, num_states)))
+        self.initial_state = 0
+
+    def accepts(self, word):
+        state = self.initial_state
+        for symbol in word:
+            state = self.transitions[state][symbol]
+        return state in self.accepting
+
+def generate_random_dfa_test_file(n, filename):
+    dfa = DFA(n, ['0', '1'])
+    seen = set()
+    with open(filename, 'w') as f:
+        for _ in range(100):
+            word = ''.join(random.choice(['0', '1']) for _ in range(20))
+            for i in range(0, len(word) + 1):
+                prefix = word[:i]
+                if prefix in seen:
+                    continue
+                seen.add(prefix)
+                accepted = dfa.accepts(prefix)
+                f.write(f"{prefix},{'+' if accepted else '-'}\n")
 
 # From the Aalpy folder, run using:
 # PYTHONPATH=. python3 Benchmarking/incomplete_dfa_benchmark/benchmark_incomplete_dfa.py
 
 test_cases_path = "Benchmarking/incomplete_dfa_benchmark/test_cases/"
-logging.basicConfig(level=logging.INFO, format=f"{datetime.datetime.now().strftime("%H:%M:%S")} %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format=f"%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S")
 
 
 def is_simple_input(inp: str) -> bool:
@@ -150,9 +181,14 @@ def run_test_cases_pool(file: str) -> None:
 
 
 def main() -> None:
-    # run_test_cases_pool("04_09")
-    run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=17)
-
+    # for i in range(1, 12):
+    #     for j in range(1, 101):
+    #         generate_random_dfa_test_file(i,
+    #                                       f"Benchmarking/incomplete_dfa_benchmark/test_cases/oliveira/random/{i}_{j}.txt")
+    run_test_cases_pool("all_17")
+    # run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=11)
+    # run_test_case_horizon_increase("airportA3-3-3-15.txt", max_horizon=16)
+    return
 
 if __name__ == "__main__":
     main()
