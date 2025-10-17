@@ -142,7 +142,7 @@ class ObservationTreeSquare:
         """
         Check if the output of a node is known.
         """
-        return node.output is not None and node.output != "unknown"
+        return node.output is not None and node.output != ['?']
 
     def count_informative_nodes(self):
         """
