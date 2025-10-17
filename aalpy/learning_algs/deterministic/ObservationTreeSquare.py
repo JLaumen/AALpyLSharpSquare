@@ -315,7 +315,14 @@ class ObservationTreeSquare:
         for i, node in enumerate(nodes):
             if self.is_known(node):
                 # raise ValueError(f"{node.output}")
-                val = Bool(True if node.output[0] == "+" else False)
+                b = None
+                if node.output[0] == "+":
+                    b = True
+                elif node.output[0] == "-":
+                    b = False
+                else:
+                    raise ValueError(f"Unknown output {node.output} in SMT encoding.")
+                val = Bool(b)
                 s.add_assertion(Function(dfa_output, [Function(states_mapping, [Int(i)])]).Iff(val))
 
         for node, candidates in self.frontier_to_basis_dict.items():
