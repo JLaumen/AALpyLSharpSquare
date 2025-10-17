@@ -48,6 +48,28 @@ class SystemDCOracleST(Oracle):
 
     def find_cex(self, hypothesis):
         self.equivalence_queries += 1
+
+        # If hypothesis is a plain DFA, only check '+' (accept) and '-' (reject) traces.
+        # Return the first trace that disagrees.
+        if isinstance(hypothesis, Dfa):
+            def dfa_accepts(dfa, trace):
+                # Walk the DFA using transitions; reject if transition missing.
+                state = dfa.initial_state
+                for a in trace:
+                    if a not in state.transitions:
+                        return False
+                    state = state.transitions[a]
+                return getattr(state, 'is_accepting', False)
+
+            for label, trace in self.traces:
+                if label == '+':
+                    if not dfa_accepts(hypothesis, trace):
+                        return trace
+                elif label == '-':
+                    if dfa_accepts(hypothesis, trace):
+                        return trace
+            return None
+
         for label, trace in self.traces:
             if hypothesis.execute_sequence(hypothesis.initial_state, trace)[-1] != label:
                 return trace
@@ -88,7 +110,6 @@ class SystemDCOracleST(Oracle):
         pass
 
     def moore_to_dfa(self, machine, accepting_output):
-        return machine
         d = {}
         for s in machine.states:
             d[s.state_id] = DfaState(s.state_id, is_accepting=s.output in accepting_output)
