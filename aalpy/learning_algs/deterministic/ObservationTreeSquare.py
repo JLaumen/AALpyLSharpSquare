@@ -435,6 +435,7 @@ class ObservationTreeSquare:
         Inserts the counter example into the observation tree and searches for the
         input-output sequence which is different
         """
+        print("Processing counterexample:", cex_inputs, cex_outputs)
         cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="full")
         self.insert_observation_sequence(cex_inputs, cex_outputs)
 
