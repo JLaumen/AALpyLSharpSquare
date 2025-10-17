@@ -19,13 +19,24 @@ class SULOracleWrapper(SUL):
         self.sul.post()
 
     def step(self, letter):
+        # If target is "?" treat it as a wildcard: always match (ignore '?' comparisons).
+        if self.target == "?":
+            # still consume the step on the wrapped SUL so side-effects / state advance happen
+            self.sul.step(letter)
+            return True
         l = self.sul.step(letter)
         return l == self.target
 
     def query(self, word: tuple) -> list:
         self.pre()
+        # empty-word: try to query the wrapped SUL if it supports query, otherwise
+        # treat "?" as wildcard (match).
         if len(word) == 0:
-            out = [(self.target == False) or (self.target is None)]
+            try:
+                val = self.sul.query(tuple())
+                out = [(self.target == "?") or (val and val[0] == self.target)]
+            except Exception:
+                out = [self.target == "?"]
         else:
             out = [self.step(letter) for letter in word]
         self.post()
@@ -38,9 +49,11 @@ class SystemDCOracleST(Oracle):
         super().__init__(alphabet, sul)
         self.T = T
         self.traces = traces
+        # use the filtered wrapper for '+' and '-' so sampled words aren't ones where SUL returns '?'
         self.dc1_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "?"), walks_per_state=walks_per_state, walk_len=walk_len)
-        self.b_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "+"), walks_per_state=walks_per_state, walk_len=walk_len)
-        self.t_diff_b_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "-"), walks_per_state=walks_per_state, walk_len=walk_len)
+        self.b_oracle = FilteredRandomWMethodEqOracle(alphabet, sul, "+", walks_per_state=walks_per_state, walk_len=walk_len)
+        self.t_diff_b_oracle = FilteredRandomWMethodEqOracle(alphabet, sul, "-", walks_per_state=walks_per_state, walk_len=walk_len)
+        # keep dc / wildcard oracles as-is
         self.dc_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "?"), walks_per_state=walks_per_state, walk_len=walk_len)
         self.equivalence_queries = 0
         self.example = example
@@ -169,3 +182,48 @@ class SystemDCOracleST(Oracle):
                     l.append(a)
                     s = s[len(a):]
         return tuple(l)
+
+class FilteredRandomWMethodEqOracle:
+    """
+    Wraps RandomWMethodEqOracle but ensures returned counterexamples correspond
+    to SUL outputs that are actually '+' or '-', not '?'.
+    """
+    def __init__(self, alphabet, real_sul, target, walks_per_state=200, walk_len=30):
+        self.real_sul = real_sul
+        self.target = target  # '+' or '-' or '?'
+        # underlying oracle compares hypothesis using a wrapped SUL producing booleans
+        self.inner = RandomWMethodEqOracle(alphabet, SULOracleWrapper(real_sul, target),
+                                           walks_per_state=walks_per_state, walk_len=walk_len)
+        # expose attributes used elsewhere if needed
+        self.alphabet = self.inner.alphabet
+        self.walks_per_state = walks_per_state
+        self.walk_len = walk_len
+
+    def find_cex(self, hypothesis):
+        # try multiple times to get a cex that matches the real_sul final output requirement
+        max_attempts = max(10 * (self.walks_per_state or 1), 1000)
+        attempts = 0
+        while attempts < max_attempts:
+            cex = self.inner.find_cex(hypothesis)
+            if cex is None:
+                return None
+            # ask the real SUL what it actually outputs for this word
+            try:
+                out = self.real_sul.query(tuple(cex))
+                last = out[-1] if out else None
+            except Exception:
+                last = None
+            # if SUL produced '?', skip this candidate
+            if last == "?":
+                attempts += 1
+                continue
+            # if we want '+' ensure SUL returned '+', similarly for '-'
+            if self.target == "+" and last == "+":
+                return cex
+            if self.target == "-" and last == "-":
+                return cex
+            # if target is wildcard accept any non-'?' result
+            if self.target == "?":
+                return cex
+            attempts += 1
+        return None
