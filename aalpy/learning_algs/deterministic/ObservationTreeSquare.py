@@ -65,7 +65,7 @@ class ObservationTreeSquare:
         print("Insert observation sequence:", inputs, outputs)
         node = self.root
         for inp, output in zip(inputs, outputs):
-            node = node.extend_and_get(inp, output)
+            node = node.extend_and_get(inp, [output[-1]])
             node.set_output(output)
             if not node in self.frontier_to_basis_dict:
                 candidates = {candidate for candidate in self.guaranteed_basis if
