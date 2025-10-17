@@ -139,6 +139,7 @@ class RandomWMethodEqOracle(Oracle):
 
                 if output_sul != output_hyp and output_sul != "?" and output_sul != ["?"]:
                     self.sul.post()
+                    print(output_sul)
                     return test_case[:ind + 1]
 
         return None
