@@ -444,7 +444,7 @@ class ObservationTreeSquare:
             # self._process_linear_search(
             #     hypothesis, cex_inputs[:prefix_index + 1], cex_outputs[:prefix_index + 1])
         else:
-            raise ValueError("Invalid counterexample type:" + str(type(cex_outputs)))
+            raise ValueError("Invalid counterexample type: " + str(type(cex_outputs)) + " - " + str(cex_outputs))
 
     def _get_output_sequence(self, inputs, query_mode="full"):
         """ 
