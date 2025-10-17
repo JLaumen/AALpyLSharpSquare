@@ -17,7 +17,7 @@ class MooreNode:
 
     def set_output(self, output):
         self.output = output
-        if output is True or output is False:
+        if output is True or output is False or output == ["+"] or output == ["-"]:
             self.leads_to_known = True
             node = self
             while node.parent is not None and not node.parent.leads_to_known:
