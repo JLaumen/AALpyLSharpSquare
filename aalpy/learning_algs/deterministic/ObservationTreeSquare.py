@@ -311,6 +311,7 @@ class ObservationTreeSquare:
         # Force known outputs
         for i, node in enumerate(nodes):
             if self.is_known(node):
+                raise ValueError(f"{node.output}")
                 val = Bool(node.output[0])
                 s.add_assertion(Function(dfa_output, [Function(states_mapping, [Int(i)])]).Iff(val))
 
