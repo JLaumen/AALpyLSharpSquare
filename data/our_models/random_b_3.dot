@@ -1,0 +1,33 @@
+digraph "output/c" {
+s0 [label=s0];
+s1 [label=s1];
+s2 [label=s2];
+s3 [label=s3];
+s4 [label=s4, shape=doublecircle];
+s0 -> s0 [label=A];
+s0 -> s0 [label=B];
+s0 -> s0 [label=C];
+s0 -> s0 [label=D];
+s0 -> s0 [label=E];
+s0 -> s0 [label=F];
+s0 -> s1 [label=A];
+s1 -> s2 [label=B];
+s2 -> s2 [label=A];
+s2 -> s2 [label=B];
+s2 -> s2 [label=C];
+s2 -> s2 [label=D];
+s2 -> s2 [label=E];
+s2 -> s2 [label=F];
+s2 -> s3 [label=C];
+s3 -> s4 [label=D];
+s4 -> s4 [label=A];
+s4 -> s4 [label=B];
+s4 -> s4 [label=C];
+s4 -> s4 [label=D];
+s4 -> s4 [label=E];
+s4 -> s4 [label=F];
+
+
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

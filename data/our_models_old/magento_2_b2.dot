@@ -1,0 +1,11 @@
+digraph "data/our_models/magento_2_b2" {
+0 [label=0];
+0 -> 0  [label=L1];
+0 -> 0  [label=C0];
+0 -> 0  [label=L0];
+0 -> 0  [label=A0];
+0 -> 0  [label=A1];
+0 -> 0  [label=C1];
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

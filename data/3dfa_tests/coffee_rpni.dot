@@ -1,0 +1,20 @@
+digraph coffee_rpni {
+s0 [label="s0"];
+s1 [label="s1"];
+s2 [label="s2"];
+s3 [label="s3", shape=doublecircle];
+s0 -> s1  [label="C1"];
+s0 -> s0  [label="B1"];
+s0 -> s0  [label="N"];
+s0 -> s0  [label="D1"];
+s1 -> s2  [label="C1"];
+s1 -> s0  [label="B1"];
+s2 -> s3  [label="C1"];
+s2 -> s0  [label="B1"];
+s3 -> s3  [label="C1"];
+s3 -> s3  [label="B1"];
+s3 -> s3  [label="D1"];
+s3 -> s3  [label="N"];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

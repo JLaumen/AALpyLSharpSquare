@@ -1,0 +1,21 @@
+digraph magento_alg {
+s0 [label="s0"];
+s1 [label="s1"];
+s2 [label="s2"];
+s4 [label="s4"];
+s6 [label="s6"];
+"+" [label="+", shape=doublecircle];
+s0 -> s1  [label="LC"];
+s0 -> s2  [label="L0"];
+s1 -> s4  [label="L0"];
+s2 -> s4  [label="LC"];
+s4 -> s6  [label="A0_0"];
+s6 -> s6  [label="A0_0"];
+s6 -> "+"  [label="C"];
+"+" -> "+"  [label="LC"];
+"+" -> "+"  [label="L0"];
+"+" -> "+"  [label="A0_0"];
+"+" -> "+"  [label="C"];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

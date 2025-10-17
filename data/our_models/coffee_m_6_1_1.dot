@@ -1,0 +1,38 @@
+digraph G {
+  0 [ shape="doublecircle" label="0" ];
+  1 [ shape="doublecircle" label="1" ];
+  2 [ shape="doublecircle" label="2" ];
+  3 [ shape="doublecircle" label="3" ];
+  4 [ shape="doublecircle" label="4" ];
+  5 [ shape="doublecircle" label="5" ];
+  6 [ shape="doublecircle" label="6" ];
+  7 [ shape="doublecircle" label="7" ];
+  8 [ shape="doublecircle" label="8" ];
+  9 [ shape="doublecircle" label="9" ];
+  10 [ shape="doublecircle" label="10" ];
+  11 [ shape="doublecircle" label="11" ];
+  12 [ shape="doublecircle" label="12" ];
+  13 [ shape="doublecircle" label="13" ];
+  0 -> 1 [ label="C1" ];
+  1 -> 2 [ label="B1" ];
+  2 -> 0 [ label="D1" ];
+  1 -> 3 [ label="C1" ];
+  3 -> 4 [ label="B1" ];
+  4 -> 1 [ label="D1" ];
+  3 -> 5 [ label="C1" ];
+  5 -> 6 [ label="B1" ];
+  6 -> 3 [ label="D1" ];
+  5 -> 7 [ label="C1" ];
+  7 -> 8 [ label="B1" ];
+  8 -> 5 [ label="D1" ];
+  7 -> 9 [ label="C1" ];
+  9 -> 10 [ label="C1" ];
+  10 -> 11 [ label="B1" ];
+  11 -> 9 [ label="D1" ];
+  9 -> 12 [ label="B1" ];
+  12 -> 7 [ label="D1" ];
+  0 -> 13 [ label="B1" ];
+  13 -> 0 [ label="N" ];
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

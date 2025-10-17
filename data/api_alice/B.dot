@@ -1,0 +1,35 @@
+digraph B {
+  0 [label="0"];
+  1 [label="1"];
+  2 [label="2"];
+  3 [label="3"];
+  4 [label="4", shape=doublecircle];
+  0 -> 0 [ label="L" ];
+  0 -> 0 [ label="W" ];
+  0 -> 0 [ label="D" ];
+  0 -> 0 [ label="G" ];
+  0 -> 1 [ label="I" ];
+  1 -> 1 [ label="I" ];
+  1 -> 1 [ label="W" ];
+  1 -> 1 [ label="D" ];
+  1 -> 1 [ label="G" ];
+  1 -> 2 [ label="L" ];
+  2 -> 2 [ label="I" ];
+  2 -> 2 [ label="W" ];
+  2 -> 2 [ label="L" ];
+  2 -> 2 [ label="G" ];
+  2 -> 3 [ label="D" ];
+  3 -> 3 [ label="I" ];
+  3 -> 3 [ label="W" ];
+  3 -> 3 [ label="L" ];
+  3 -> 3 [ label="D" ];
+  3 -> 4 [ label="G" ];
+  4 -> 4 [ label="I" ];
+  4 -> 4 [ label="W" ];
+  4 -> 4 [ label="L" ];
+  4 -> 4 [ label="D" ];
+  4 -> 4 [ label="G" ];
+
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

@@ -1,0 +1,22 @@
+digraph TB {
+  0 [label="0"];
+  1 [label="1"];
+  2 [label="2"];
+  3 [label="3"];
+  4 [label="4"];
+  5 [label="5", shape=doublecircle];
+  0 -> 1 [ label="I" ];
+  1 -> 2 [ label="L" ];
+  1 -> 2 [ label="W" ];
+  1 -> 2 [ label="D" ];
+  2 -> 3 [ label="L" ];
+  2 -> 3 [ label="W" ];
+  2 -> 3 [ label="D" ];
+  3 -> 4 [ label="L" ];
+  3 -> 4 [ label="W" ];
+  3 -> 4 [ label="D" ];
+  4 -> 5 [ label="G" ];
+  5 -> 5 [ label="G" ];
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

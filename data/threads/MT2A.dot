@@ -1,0 +1,13 @@
+digraph "MT2A" {
+s0 [label=s0];
+s1 [label=s1];
+s2 [label=s2];
+s3 [label=s3, shape=doublecircle];
+s0 -> s1 [label="T2"];
+s1 -> s2 [label="T2"];
+s2 -> s3 [label="T2"];
+
+
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

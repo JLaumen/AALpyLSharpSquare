@@ -1,0 +1,20 @@
+digraph magento_rpni {
+s0 [label="s0"];
+s1 [label="s1"];
+s2 [label="s2"];
+s3 [label="s3", shape=doublecircle];
+s0 -> s0  [label="LC"];
+s0 -> s0  [label="L0"];
+s0 -> s1  [label="A0_0"];
+s1 -> s2  [label="LC"];
+s1 -> s1  [label="A0_0"];
+s1 -> s3  [label="C"];
+s2 -> s2  [label="A0_0"];
+s2 -> s0  [label="C"];
+s3 -> s3  [label="LC"];
+s3 -> s3  [label="L0"];
+s3 -> s3  [label="A0_0"];
+s3 -> s3  [label="C"];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

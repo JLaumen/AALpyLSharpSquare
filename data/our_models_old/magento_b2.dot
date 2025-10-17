@@ -1,0 +1,30 @@
+digraph "output/spec_dfa" {
+s0 [label=s0, shape=circle];
+s1 [label=s1, shape=circle];
+s2 [label=s2, shape=circle];
+s3 [label=s3, shape=doublecircle];
+s0 -> s0  [label=Lj];
+s0 -> s0  [label=Ci];
+s0 -> s0  [label=Cj];
+s0 -> s1  [label=Li];
+s1 -> s1  [label=Li];
+s1 -> s1  [label=Lj];
+s1 -> s1  [label=Ci];
+s1 -> s1  [label=Cj];
+s1 -> s2  [label=Aj];
+s2 -> s2  [label=Li];
+s2 -> s2  [label=Lj];
+s2 -> s2  [label=Aj];
+s2 -> s2  [label=Cj];
+s2 -> s3  [label=Ci];
+s3 -> s3  [label=Li];
+s3 -> s3  [label=Lj];
+s3 -> s3  [label=Ai];
+s3 -> s3  [label=Aj];
+s3 -> s3  [label=Ci];
+s3 -> s3  [label=Cj];
+
+
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

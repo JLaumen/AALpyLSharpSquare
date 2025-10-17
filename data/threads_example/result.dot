@@ -1,0 +1,31 @@
+digraph result {
+s0 [label="s0"];
+s1 [label="s1"];
+s2 [label="s2"];
+s3 [label="s3"];
+s6 [label="s6"];
+s10 [label="s10"];
+s15 [label="s15"];
+s19 [label="s19"];
+s20 [label="s20", shape=doublecircle];
+s0 -> s1  [label="T1"];
+s0 -> s2  [label="T2"];
+s1 -> s3  [label="T1"];
+s1 -> s2  [label="T2"];
+s2 -> s2  [label="T1"];
+s2 -> s2  [label="T2"];
+s3 -> s6  [label="T1"];
+s3 -> s2  [label="T2"];
+s6 -> s10  [label="T1"];
+s6 -> s2  [label="T2"];
+s10 -> s15  [label="T1"];
+s10 -> s2  [label="T2"];
+s15 -> s19  [label="T1"];
+s15 -> s20  [label="T2"];
+s19 -> s2  [label="T1"];
+s19 -> s20  [label="T2"];
+s20 -> s20  [label="T1"];
+s20 -> s20  [label="T2"];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

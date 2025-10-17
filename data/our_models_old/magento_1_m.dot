@@ -1,0 +1,12 @@
+digraph "data/our_models/magento_1_m" {
+s0 [label=s0, shape=doublecircle];
+s1 [label=s1, shape=doublecircle];
+s2 [label=s2, shape=doublecircle];
+s3 [label=s3, shape=doublecircle];
+s0 -> s1  [label=L0];
+s1 -> s2  [label=A00];
+s2 -> s3  [label=C0];
+s2 -> s2  [label=A00];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

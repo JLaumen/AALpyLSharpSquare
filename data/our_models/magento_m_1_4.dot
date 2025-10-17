@@ -1,0 +1,27 @@
+digraph G {
+  0 [ shape="doublecircle" label="0" ];
+  1 [ shape="doublecircle" label="1" ];
+  2 [ shape="doublecircle" label="2" ];
+  3 [ shape="doublecircle" label="3" ];
+  4 [ shape="doublecircle" label="4" ];
+  5 [ shape="doublecircle" label="5" ];
+  0 -> 1 [ label="LC" ];
+  1 -> 2 [ label="L0" ];
+  2 -> 3 [ label="A0_3" ];
+  3 -> 3 [ label="A0_0" ];
+  3 -> 3 [ label="A0_3" ];
+  3 -> 4 [ label="C" ];
+  3 -> 3 [ label="A0_1" ];
+  3 -> 3 [ label="A0_2" ];
+  2 -> 3 [ label="A0_0" ];
+  2 -> 3 [ label="A0_1" ];
+  2 -> 3 [ label="A0_2" ];
+  0 -> 5 [ label="L0" ];
+  5 -> 2 [ label="LC" ];
+  5 -> 5 [ label="A0_0" ];
+  5 -> 5 [ label="A0_2" ];
+  5 -> 5 [ label="A0_3" ];
+  5 -> 5 [ label="A0_1" ];
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

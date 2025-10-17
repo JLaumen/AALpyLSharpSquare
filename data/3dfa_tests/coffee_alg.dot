@@ -1,0 +1,22 @@
+digraph coffee_alg {
+s0 [label="s0"];
+s3 [label="s3"];
+s1 [label="s1"];
+s4 [label="s4"];
+s5 [label="s5"];
+"+" [label="+", shape=doublecircle];
+s0 -> s3  [label="C1"];
+s0 -> s1  [label="B1"];
+s3 -> s4  [label="C1"];
+s3 -> s5  [label="B1"];
+s1 -> s0  [label="N"];
+s4 -> "+"  [label="C1"];
+s4 -> s5  [label="B1"];
+s5 -> s0  [label="D1"];
+"+" -> "+"  [label="C1"];
+"+" -> "+"  [label="B1"];
+"+" -> "+"  [label="D1"];
+"+" -> "+"  [label="N"];
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

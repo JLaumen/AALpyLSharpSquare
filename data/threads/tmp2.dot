@@ -1,0 +1,23 @@
+digraph tmp2 {
+s0 [label="s0"];
+s1 [label="s1"];
+s2 [label="s2"];
+s3 [label="s3"];
+s4 [label="s4"];
+s5 [label="s5"];
+s6 [label="s6"];
+s7 [label="s7", shape=doublecircle];
+s0 -> s1  [label="T1"];
+s1 -> s2  [label="T1"];
+s2 -> s3  [label="T1"];
+s3 -> s4  [label="T1"];
+s4 -> s5  [label="T1"];
+s5 -> s6  [label="T1"];
+s5 -> s7  [label="T2"];
+s6 -> s7  [label="T2"];
+s7 -> s7  [label="T1"];
+s7 -> s7  [label="T2"];
+
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}

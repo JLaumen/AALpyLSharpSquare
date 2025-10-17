@@ -1,0 +1,21 @@
+digraph M {
+  0 [label="0"];
+  1 [label="1"];
+  2 [label="2"];
+  3 [label="3"];
+  4 [label="4", shape=doublecircle];
+  5 [label="5"];
+  6 [label="6"];
+  0 -> 1 [ label="LC" ];
+  1 -> 2 [ label="L0" ];
+  2 -> 3 [ label="A0_0" ];
+  3 -> 3 [ label="A0_0" ];
+  3 -> 4 [ label="C" ];
+  0 -> 5 [ label="L0" ];
+  5 -> 2 [ label="LC" ];
+  5 -> 6 [ label="A0_0" ];
+  6 -> 6 [ label="A0_0" ];
+  6 -> 3 [ label="LC" ];
+__start0 [label="", shape=none];
+__start0 -> 0  [label=""];
+}

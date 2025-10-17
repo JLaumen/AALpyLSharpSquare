@@ -1,0 +1,21 @@
+digraph "p6" {
+s0 [label=s0];
+s1 [label=s1];
+s2 [label=s2, shape=doublecircle];
+s0 -> s0 [label=A];
+s0 -> s0 [label=B];
+s0 -> s0 [label=C];
+s0 -> s1 [label=D];
+s1 -> s1 [label=A];
+s1 -> s1 [label=B];
+s1 -> s1 [label=C];
+s1 -> s2 [label=D];
+s2 -> s2 [label=A];
+s2 -> s2 [label=B];
+s2 -> s2 [label=C];
+s2 -> s2 [label=D];
+
+
+__start0 [label="", shape=none];
+__start0 -> s0  [label=""];
+}
