@@ -136,6 +136,10 @@ class RandomWMethodEqOracle(Oracle):
                 output_hyp = hypothesis.step(i)
                 output_sul = self.sul.step(i)
                 self.num_steps += 1
+                if output_sul == "-":
+                    output_sul = False
+                elif output_sul == "+":
+                    output_sul = True
 
                 if output_sul != output_hyp and output_sul != "?" and output_sul != ["?"]:
                     self.sul.post()
