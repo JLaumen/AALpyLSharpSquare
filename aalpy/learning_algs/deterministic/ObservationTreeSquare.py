@@ -274,6 +274,8 @@ class ObservationTreeSquare:
         Find a hypothesis consistent with the observation tree, using the pySMT solver.
         There are 2 free functions: "out" and "m" and 1 bound function "delta".
         """
+        print("Building hypothesis of size", self.size)
+        print("Basis size:", len(self.guaranteed_basis), "Frontier size:", len(self.frontier_to_basis_dict))
         logging.debug(f"Trying to build hypothesis of size {self.size}")
         logging.debug(f"Basis size: {len(self.guaranteed_basis)}, Frontier size: {len(self.frontier_to_basis_dict)}")
         start_smt_time = time.time()
