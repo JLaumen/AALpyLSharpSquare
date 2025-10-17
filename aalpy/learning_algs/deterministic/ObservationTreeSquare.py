@@ -432,6 +432,7 @@ class ObservationTreeSquare:
         cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="full")
         print("Obtained outputs:", cex_outputs)
         self.insert_observation_sequence(cex_inputs, cex_outputs)
+        print(self.root)
 
 
     def _get_output_sequence(self, inputs, query_mode="full"):
