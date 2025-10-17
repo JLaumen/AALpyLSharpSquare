@@ -276,6 +276,7 @@ class Apartness:
     def _get_distinguishing_sequences_moore(group, alphabet):
         if pessimistic:
             return
+        return
         # length = 0
         # Identifies if two states can be distinguished by any input-output pair in the provided alphabet
         groups = deque([([], group)])
