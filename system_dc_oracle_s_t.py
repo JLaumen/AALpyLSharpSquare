@@ -61,8 +61,8 @@ class SystemDCOracleST(Oracle):
                     state = state.transitions[a]
                 return getattr(state, 'is_accepting', False)
 
+            print(self.traces)
             for label, trace in self.traces:
-                print("Checking trace:", trace, "expected label:", label)
                 if label == '+':
                     if not dfa_accepts(hypothesis, trace):
                         return trace
