@@ -62,6 +62,7 @@ class SystemDCOracleST(Oracle):
                 return getattr(state, 'is_accepting', False)
 
             for label, trace in self.traces:
+                print("Checking trace:", trace, "expected label:", label)
                 if label == '+':
                     if not dfa_accepts(hypothesis, trace):
                         return trace
