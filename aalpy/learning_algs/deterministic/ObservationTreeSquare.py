@@ -429,6 +429,7 @@ class ObservationTreeSquare:
         """
         print("Processing counter example:", cex_inputs, cex_outputs)
         cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="full")
+        print("Obtained outputs:", cex_outputs)
         self.insert_observation_sequence(cex_inputs, cex_outputs)
 
 
