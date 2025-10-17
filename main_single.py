@@ -47,6 +47,10 @@ def run(example, t_type):
                                    sul,
                                    oracle,
                                    return_data=True)
+    
+    data["benchmark"] = example
+    data["L* time"] = data.pop("learning_time")
+    data["3DFA"] = data.pop("automaton_size")
 
     data["ce_length"] = len(counter_examples_dict[example][t_type][0][1])
     data["alphabet_size"] = len(alphabet)
