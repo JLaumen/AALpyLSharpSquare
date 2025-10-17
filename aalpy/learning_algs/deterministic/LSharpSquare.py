@@ -36,6 +36,7 @@ def run_lsharp_square(alphabet: list,
 
         if hypothesis is None:
             continue
+        print(hypothesis)
 
         # Pose Equivalence Query
         eq_query_start = time.time()
