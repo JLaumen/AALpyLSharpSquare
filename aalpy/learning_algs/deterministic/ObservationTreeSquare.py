@@ -66,7 +66,7 @@ class ObservationTreeSquare:
         node = self.root
         for inp, output in zip(inputs, outputs):
             node = node.extend_and_get(inp, [output[-1]])
-            node.set_output(output)
+            node.set_output([output[-1]])
             if not node in self.frontier_to_basis_dict:
                 candidates = {candidate for candidate in self.guaranteed_basis if
                               not Apartness.states_are_incompatible(candidate, node, self)}
