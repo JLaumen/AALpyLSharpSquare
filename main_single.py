@@ -49,7 +49,7 @@ def run(example, t_type):
                                    return_data=True)
     
     data["benchmark"] = example
-    data["L* time"] = data.pop("learning_time")
+    data["L* time"] = data.pop("total_time")
     data["3DFA"] = data.pop("automaton_size")
 
     data["ce_length"] = len(counter_examples_dict[example][t_type][0][1])
@@ -73,8 +73,9 @@ def main_single(benchmark, t_type, method, description_type, early_detection):
     end_time = time.time()
     # print(len(dfa3.states))
     # print(dfa3)
-    results = {"benchmark": benchmark}
-    results["3DFA"] = data["automaton_size"]
+    results = data
+    # results = {"benchmark": benchmark}
+    # results["3DFA"] = data["automaton_size"]
 
     if t_type == "1":
         # results = { col_name:results[col_name] for col_name in ["benchmark", "ce_length", "alphabet_size", "3DFA", "L* time", "FE_DFA", "B_size"]}
