@@ -62,7 +62,7 @@ class ObservationTreeSquare:
         """
         Insert an observation into the tree using a sequence of inputs and their corresponding outputs.
         """
-        print("Insert observation sequence:", inputs, outputs)
+        # print("Insert observation sequence:", inputs, outputs)
         node = self.root
         for inp, output in zip(inputs, outputs):
             node = node.extend_and_get(inp, [output[-1]])
