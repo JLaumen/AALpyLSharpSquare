@@ -425,26 +425,9 @@ class ObservationTreeSquare:
         Inserts the counter example into the observation tree and searches for the
         input-output sequence which is different
         """
-        if type(cex_outputs) not in [list, tuple]:
-            # self.insert_observation(cex_inputs, cex_outputs)
-            cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="full")
-            self.insert_observation_sequence(cex_inputs, cex_outputs)
-            # # Count how many steps the counterexample is away from the guaranteed basis
-            # node = self.get_successor(cex_inputs)
-            # steps_from_basis = 0
-            # while node not in self.guaranteed_basis and node is not None:
-            #     node = node.parent
-            #     steps_from_basis += 1
-            # print(f"Counterexample is {steps_from_basis} steps away from guaranteed basis")
-            return
-            # hyp_outputs = hypothesis.compute_output_seq(
-            #     hypothesis.initial_state, cex_inputs)
-            # prefix_index = self._get_counter_example_prefix_index(
-            #     cex_outputs, hyp_outputs)
-            # self._process_linear_search(
-            #     hypothesis, cex_inputs[:prefix_index + 1], cex_outputs[:prefix_index + 1])
-        else:
-            raise ValueError("Invalid counterexample type: " + str(type(cex_outputs)) + " - " + str(cex_outputs))
+        cex_outputs, _ = self._get_output_sequence(cex_inputs, query_mode="full")
+        self.insert_observation_sequence(cex_inputs, cex_outputs)
+
 
     def _get_output_sequence(self, inputs, query_mode="full"):
         """ 
