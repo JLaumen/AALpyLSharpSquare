@@ -311,7 +311,7 @@ class ObservationTreeSquare:
         # Force known outputs
         for i, node in enumerate(nodes):
             if self.is_known(node):
-                val = Bool(node.output)
+                val = Bool(node.output[0])
                 s.add_assertion(Function(dfa_output, [Function(states_mapping, [Int(i)])]).Iff(val))
 
         for node, candidates in self.frontier_to_basis_dict.items():
