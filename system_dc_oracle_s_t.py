@@ -49,6 +49,9 @@ class SystemDCOracleST(Oracle):
     def find_cex(self, hypothesis):
         self.equivalence_queries += 1
         for label, trace in self.traces:
+            if label == "?":
+                continue
+            label = True if label == "+" else False
             if hypothesis.execute_sequence(hypothesis.initial_state, trace)[-1] != label:
                 return trace
 
