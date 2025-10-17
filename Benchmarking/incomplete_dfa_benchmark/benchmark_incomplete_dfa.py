@@ -185,7 +185,7 @@ def main() -> None:
     #     for j in range(1, 101):
     #         generate_random_dfa_test_file(i,
     #                                       f"Benchmarking/incomplete_dfa_benchmark/test_cases/oliveira/random/{i}_{j}.txt")
-    run_test_cases_pool("all_17")
+    run_test_cases_pool("04_11")
     # run_test_case_horizon_increase("SnL-milton-16.txt", max_horizon=11)
     # run_test_case_horizon_increase("airportA3-3-3-15.txt", max_horizon=16)
     return

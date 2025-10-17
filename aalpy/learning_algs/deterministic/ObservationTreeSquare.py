@@ -18,7 +18,7 @@ from ... import Dfa, DfaState
 timeout = 3600 * 1000
 
 test_cases_path = "Benchmarking/incomplete_dfa_benchmark/test_cases/"
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format=f"%(asctime)s %(levelname)s: %(message)s",
                     datefmt="%H:%M:%S")
 
@@ -306,6 +306,7 @@ class ObservationTreeSquare:
         # Basis nodes map to different states
         for i, node in enumerate(self.guaranteed_basis):
             s.add_assertion(Function(states_mapping, [Int(nodes.index(node))]).Equals(Int(i)))
+            # break
 
         # Force known outputs
         for i, node in enumerate(nodes):
@@ -314,6 +315,7 @@ class ObservationTreeSquare:
                 s.add_assertion(Function(dfa_output, [Function(states_mapping, [Int(i)])]).Iff(val))
 
         for node, candidates in self.frontier_to_basis_dict.items():
+            # break
             if node not in nodes:
                 continue
             s.add_assertion(Or([
