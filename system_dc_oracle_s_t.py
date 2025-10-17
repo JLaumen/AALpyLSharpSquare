@@ -3,7 +3,7 @@ from aalpy.base.Oracle import Oracle
 from aalpy.oracles import RandomWMethodEqOracle
 
 from utils import get_intersection_dfa, get_diff_dfa, are_dfa_equivalent, aalpy_to_automata_lib_format, is_subset
-from aalpy.automata import Dfa, DfaState
+from aalpy.automata import Dfa, DfaState, MooreState, MooreMachine
 from automata.base.exceptions import EmptyLanguageException
 
 class SULOracleWrapper(SUL):
@@ -49,26 +49,67 @@ class SystemDCOracleST(Oracle):
     def find_cex(self, hypothesis):
         self.equivalence_queries += 1
 
-        # If hypothesis is a plain DFA, only check '+' (accept) and '-' (reject) traces.
-        # Return the first trace that disagrees.
+        # If hypothesis is a plain DFA, use the SUL-based oracles (so behavior is checked against the SUL),
+        # but only require agreement on '+' and '-' (we materialize boolean-output Moore machines).
         if isinstance(hypothesis, Dfa):
-            def dfa_accepts(dfa, trace):
-                # Walk the DFA using transitions; reject if transition missing.
-                state = dfa.initial_state
-                for a in trace:
-                    if a not in state.transitions:
-                        return False
-                    state = state.transitions[a]
-                return getattr(state, 'is_accepting', False)
 
-            print(self.traces)
+            def dfa_to_boolean_moore(dfa, accept_when_accepting: bool):
+                # accept_when_accepting True  -> hypothesis outputs True for DFA accepting states (maps to '+')
+                # accept_when_accepting False -> hypothesis outputs True for DFA non-accepting states (maps to '-')
+                states_map = {}
+                for s in dfa.states:
+                    out = (s.is_accepting == accept_when_accepting)
+                    states_map[s.state_id] = MooreState(s.state_id, output=out)
+                for s in dfa.states:
+                    for a, s2 in s.transitions.items():
+                        states_map[s.state_id].transitions[a] = states_map[s2.state_id]
+                init = states_map[dfa.initial_state.state_id]
+                return MooreMachine(init, list(states_map.values()))
+
+            # quick check against explicit traces first (faster)
             for label, trace in self.traces:
                 if label == '+':
-                    if not dfa_accepts(hypothesis, trace):
+                    # DFA must accept
+                    state = hypothesis.initial_state
+                    for a in trace:
+                        if a not in state.transitions:
+                            state = None
+                            break
+                        state = state.transitions[a]
+                    accepts = bool(state and state.is_accepting)
+                    if not accepts:
                         return trace
                 elif label == '-':
-                    if dfa_accepts(hypothesis, trace):
+                    # DFA must reject
+                    state = hypothesis.initial_state
+                    for a in trace:
+                        if a not in state.transitions:
+                            state = None
+                            break
+                        state = state.transitions[a]
+                    accepts = bool(state and state.is_accepting)
+                    if accepts:
                         return trace
+                # ignore '?' traces for DFA input
+
+            # Use SUL-based random/w-method oracles to find counterexamples wrt '+' and '-' behavior
+            B_plus = dfa_to_boolean_moore(hypothesis, accept_when_accepting=True)
+            cex = self.b_oracle.find_cex(B_plus)
+            if cex is not None:
+                return cex
+
+            B_minus = dfa_to_boolean_moore(hypothesis, accept_when_accepting=False)
+            cex = self.t_diff_b_oracle.find_cex(B_minus)
+            if cex is not None:
+                return cex
+
+            # also check for '?' traces (if SUL can produce '?') by giving a Moore that never outputs True for '?'
+            # this will detect if the SUL yields '?' on some sequences while the DFA never does.
+            DC = dfa_to_boolean_moore(hypothesis, accept_when_accepting=False)  # outputs True only for '-' states
+            cex = self.dc_oracle.find_cex(DC)
+            if cex is not None:
+                return cex
+
             return None
 
         for label, trace in self.traces:
