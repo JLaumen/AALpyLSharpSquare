@@ -88,6 +88,7 @@ class SystemDCOracleST(Oracle):
         pass
 
     def moore_to_dfa(self, machine, accepting_output):
+        return machine
         d = {}
         for s in machine.states:
             d[s.state_id] = DfaState(s.state_id, is_accepting=s.output in accepting_output)
