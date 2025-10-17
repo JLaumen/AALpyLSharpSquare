@@ -38,10 +38,10 @@ class SystemDCOracleST(Oracle):
         super().__init__(alphabet, sul)
         self.T = T
         self.traces = traces
-        self.dc1_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "?"), walks_per_state=walks_per_state, walk_len=walk_len)
-        self.b_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "+"), walks_per_state=walks_per_state, walk_len=walk_len)
-        self.t_diff_b_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "-"), walks_per_state=walks_per_state, walk_len=walk_len)
-        self.dc_oracle = RandomWMethodEqOracle(alphabet, SULOracleWrapper(sul, "?"), walks_per_state=walks_per_state, walk_len=walk_len)
+        self.dc1_oracle = RandomWMethodEqOracle(alphabet, sul, walks_per_state=walks_per_state, walk_len=walk_len)
+        self.b_oracle = RandomWMethodEqOracle(alphabet, sul, walks_per_state=walks_per_state, walk_len=walk_len)
+        self.t_diff_b_oracle = RandomWMethodEqOracle(alphabet, sul, walks_per_state=walks_per_state, walk_len=walk_len)
+        self.dc_oracle = RandomWMethodEqOracle(alphabet, sul, walks_per_state=walks_per_state, walk_len=walk_len)
         self.equivalence_queries = 0
         self.example = example
         self.t_type = t_type
@@ -54,6 +54,9 @@ class SystemDCOracleST(Oracle):
             label = True if label == "+" else False
             if hypothesis.execute_sequence(hypothesis.initial_state, trace)[-1] != label:
                 return trace
+
+        cex = self.dc1_oracle.find_cex(hypothesis)
+        return cex
 
         if self.t_type != "2" or self.example not in ["m55", "m135", "m185", "m22", "m199", "m76"]:
             HT = self.moore_to_dfa(hypothesis, "+-")
